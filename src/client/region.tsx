@@ -53,12 +53,90 @@ export interface GroupedRegionProps {
 
 const ROW_HOVER = { background: 'rgba(127,140,158,0.14)' } as const
 
-const head2 = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  padding: '10px 12px 8px',
+/** Region-local styles tuned to the official browser's proportions. */
+const R = {
+  head: { display: 'flex', alignItems: 'center', gap: 4, padding: '10px 8px 6px 14px' } as const,
+  title: { fontSize: 15, fontWeight: 600, margin: 0, whiteSpace: 'nowrap' } as const,
+  badge: {
+    fontSize: 10,
+    lineHeight: '15px',
+    padding: '0 6px',
+    borderRadius: 8,
+    background: 'rgba(127,140,158,0.2)',
+    opacity: 0.85,
+    whiteSpace: 'nowrap',
+  } as const,
+  iconBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 26,
+    height: 26,
+    font: 'inherit',
+    color: 'inherit',
+    opacity: 0.62,
+    background: 'transparent',
+    border: 'none',
+    borderRadius: 6,
+    cursor: 'pointer',
+    flexShrink: 0,
+  } as const,
+  groupRow: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 7,
+    padding: '5px 8px',
+    borderRadius: 6,
+    cursor: 'pointer',
+    userSelect: 'none',
+  } as const,
+  groupTitle: { fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const,
+  count: { fontSize: 11, opacity: 0.5, flexShrink: 0 } as const,
+  wsRow: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 7,
+    padding: '4px 8px 4px 26px',
+    borderRadius: 6,
+    cursor: 'pointer',
+    userSelect: 'none',
+  } as const,
+  wsTitle: { fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const,
+  sessionRows: { margin: '1px 0 4px' } as const,
+  sessionRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 7,
+    padding: '3px 8px 3px 50px',
+    borderRadius: 6,
+    cursor: 'pointer',
+    userSelect: 'none',
+  } as const,
+  sessionTitle: { fontSize: 12, opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const,
+  time: { fontSize: 11, opacity: 0.45, marginLeft: 'auto', flexShrink: 0 } as const,
+  menuLabel: { fontSize: 11, opacity: 0.5, padding: '4px 8px 2px' } as const,
 } as const
+
+/** Official-style「新建工作目录」glyph: folder outline with a plus. */
+function FolderPlusGlyph() {
+  return (
+    <svg width={15} height={15} viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M1.5 4.2c0-.94.76-1.7 1.7-1.7h2.9c.45 0 .88.18 1.2.5l1 1c.32.32.75.5 1.2.5h4.3c.94 0 1.7.76 1.7 1.7v6.6c0 .94-.76 1.7-1.7 1.7H3.2a1.7 1.7 0 0 1-1.7-1.7V4.2Z" fill="currentColor" opacity={0.4} />
+      <path d="M8 7.4v3.6M6.2 9.2h3.6" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" />
+    </svg>
+  )
+}
+
+/** 「使用官方视图」glyph: plain list lines (the official flat list). */
+function ListViewGlyph() {
+  return (
+    <svg width={15} height={15} viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h7" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
+    </svg>
+  )
+}
 
 /** Rail-mode stand-in: one icon button that expands the sidebar. */
 function RailStub({ expandSidebar }: { expandSidebar?: () => void }) {
@@ -195,7 +273,7 @@ function RegionBody(
   if (!props.hasData) {
     return (
       <div style={S.root}>
-        <div style={head2}><h2 style={S.title}>{t('title')}</h2></div>
+        <div style={R.head}><h2 style={R.title}>{t('workspaceTitle')}</h2></div>
         <p style={{ ...S.error, margin: '0 12px' }}>{t('incompatible')}</p>
       </div>
     )
@@ -210,7 +288,7 @@ function RegionBody(
     return (
       <div key={`${fromGroupId ?? 'ungrouped'}:${path}`}>
         <div
-          style={S.wsRow}
+          style={R.wsRow}
           onClick={() => toggle(expandKey)}
           onMouseEnter={event => { Object.assign(event.currentTarget.style, ROW_HOVER) }}
           onMouseLeave={event => { event.currentTarget.style.background = 'transparent' }}
@@ -234,7 +312,7 @@ function RegionBody(
                 />
               )
             : (
-                <span style={{ ...S.wsTitle, opacity: workspace === undefined ? 0.45 : undefined }}>
+                <span style={{ ...R.wsTitle, opacity: workspace === undefined ? 0.45 : undefined }}>
                   {workspace?.title ?? basename(path)}
                 </span>
               )}
@@ -344,19 +422,19 @@ function RegionBody(
         </div>
 
         {rowOpen && workspace !== undefined && (
-          <div style={S.sessionRows}>
-            {sessions.length === 0 && <div style={{ ...S.menuLabel, paddingLeft: 50 }}>{t('noSessions')}</div>}
+          <div style={R.sessionRows}>
+            {sessions.length === 0 && <div style={{ ...R.menuLabel, paddingLeft: 50 }}>{t('noSessions')}</div>}
             {sessions.map(summary => (
               <div
                 key={summary.id}
-                style={S.sessionRow}
+                style={R.sessionRow}
                 onClick={() => wsg.nav.openSession(summary.id)}
                 onMouseEnter={event => { Object.assign(event.currentTarget.style, ROW_HOVER) }}
                 onMouseLeave={event => { event.currentTarget.style.background = 'transparent' }}
               >
                 {summary.running && <span style={S.dot} />}
-                <span style={S.sessionTitle}>{summary.displayTitle}</span>
-                <span style={S.time}>{formatRelative(summary.updatedAt)}</span>
+                <span style={R.sessionTitle}>{summary.displayTitle}</span>
+                <span style={R.time}>{formatRelative(summary.updatedAt)}</span>
               </div>
             ))}
           </div>
@@ -367,21 +445,23 @@ function RegionBody(
 
   return (
     <div style={S.root} onClick={() => setConfirmingPath(null)}>
-      <div style={head2}>
-        <h2 style={S.title}>{t('title')}</h2>
+      <div style={R.head}>
+        <h2 style={R.title}>{t('workspaceTitle')}</h2>
+        <span style={R.badge}>{t('panel')}</span>
         <div style={S.grow} />
-        <button type="button" style={S.btn} disabled={busy || adding} onClick={addWorkspace}>
-          {t('addWorkspace')}
+        <button type="button" style={R.iconBtn} title={t('addWorkspace')} disabled={busy || adding} onClick={addWorkspace}>
+          <FolderPlusGlyph />
         </button>
         <button
           type="button"
-          style={S.btn}
+          style={R.iconBtn}
+          title={t('useOfficialView')}
           onClick={() => {
             localStorage.setItem(MODE_KEY, 'official')
             location.reload()
           }}
         >
-          {t('useOfficialView')}
+          <ListViewGlyph />
         </button>
       </div>
 
@@ -401,14 +481,14 @@ function RegionBody(
         return (
           <div style={S.section} key={group.id}>
             <div
-              style={S.groupRow}
+              style={R.groupRow}
               onClick={() => toggle(`g:${group.id}`)}
               onMouseEnter={event => { Object.assign(event.currentTarget.style, ROW_HOVER) }}
               onMouseLeave={event => { event.currentTarget.style.background = 'transparent' }}
             >
               <Chevron open={open} />
-              <span style={S.groupTitle}>{group.title}</span>
-              <span style={S.count}>{t('membersCount', { count: group.paths.length })}</span>
+              <span style={R.groupTitle}>{group.title}</span>
+              <span style={R.count}>{t('membersCount', { count: group.paths.length })}</span>
             </div>
             {open && group.paths.map(path => renderWorkspaceRow(path, group.id))}
           </div>
@@ -418,14 +498,14 @@ function RegionBody(
       {ungrouped.length > 0 && (
         <div style={S.section}>
           <div
-            style={S.groupRow}
+            style={R.groupRow}
             onClick={() => toggle('ungrouped')}
             onMouseEnter={event => { Object.assign(event.currentTarget.style, ROW_HOVER) }}
             onMouseLeave={event => { event.currentTarget.style.background = 'transparent' }}
           >
             <Chevron open={expanded.has('ungrouped')} />
-            <span style={{ ...S.groupTitle, opacity: 0.8 }}>{t('ungrouped')}</span>
-            <span style={S.count}>{t('membersCount', { count: ungrouped.length })}</span>
+            <span style={{ ...R.groupTitle, opacity: 0.8 }}>{t('ungrouped')}</span>
+            <span style={R.count}>{t('membersCount', { count: ungrouped.length })}</span>
           </div>
           {expanded.has('ungrouped') && ungrouped.map(workspace => renderWorkspaceRow(workspace.path, null))}
         </div>

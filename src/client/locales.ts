@@ -10,6 +10,7 @@ export const NS = 'workspace-group-manager'
 export interface WsgLocaleKeyMap {
   panel: 'panel'
   title: 'title'
+  workspaceTitle: 'workspaceTitle'
   createGroup: 'createGroup'
   ungrouped: 'ungrouped'
   noGroups: 'noGroups'
@@ -38,6 +39,7 @@ export interface WsgLocaleKeyMap {
 export const zh: Record<keyof WsgLocaleKeyMap, string> = {
   panel: '分组',
   title: '工作区分组',
+  workspaceTitle: '工作区',
   createGroup: '新建分组',
   ungrouped: '未分组',
   noGroups: '还没有分组，点击「新建分组」开始整理工作目录。',
@@ -66,6 +68,7 @@ export const zh: Record<keyof WsgLocaleKeyMap, string> = {
 export const en: Record<keyof WsgLocaleKeyMap, string> = {
   panel: 'Groups',
   title: 'Workspace Groups',
+  workspaceTitle: 'Workspaces',
   createGroup: 'New group',
   ungrouped: 'Ungrouped',
   noGroups: 'No groups yet — click "New group" to start organizing your directories.',
