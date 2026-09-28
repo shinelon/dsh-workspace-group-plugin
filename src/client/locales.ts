@@ -1,7 +1,7 @@
 /**
- * Locale dictionaries for the workspace-group-manager panel. Registered under
- * the package-owned namespace; keys are interpolated by the host locale seat
- * ('{name}' placeholders).
+ * Locale dictionaries for the workspace-group-manager surfaces. Registered
+ * under the package-owned namespace and selected by the DSH language setting
+ * (zh / en both provided); keys follow the official dotted convention.
  * @module dsh-workspace-group-manager/client/locales
  */
 
@@ -43,21 +43,21 @@ export interface WsgLocaleKeyMap {
   stopAndArchive: 'stopAndArchive'
   stopAndArchiveAsk: 'stopAndArchiveAsk'
   cancel: 'cancel'
-  viewOptionsLabel: 'viewOptionsLabel'
-  groupByLabel: 'groupByLabel'
-  groupByGroups: 'groupByGroups'
-  groupByWorkspace: 'groupByWorkspace'
-  groupByWorkspaceTree: 'groupByWorkspaceTree'
-  groupByFlat: 'groupByFlat'
-  orderByLabel: 'orderByLabel'
-  orderByManual: 'orderByManual'
-  orderByUpdated: 'orderByUpdated'
-  filterByLabel: 'filterByLabel'
-  hideArchived: 'hideArchived'
-  showArchived: 'showArchived'
-  onlyArchived: 'onlyArchived'
-  noneArchived: 'noneArchived'
-  viewOthers: 'viewOthers'
+  'viewOptions.label': 'viewOptions.label'
+  'groupBy.label': 'groupBy.label'
+  'groupBy.groups': 'groupBy.groups'
+  'groupBy.workspace': 'groupBy.workspace'
+  'groupBy.workspaceTree': 'groupBy.workspaceTree'
+  'groupBy.flat': 'groupBy.flat'
+  'orderBy.label': 'orderBy.label'
+  'orderBy.manual': 'orderBy.manual'
+  'orderBy.updated': 'orderBy.updated'
+  'filterBy.label': 'filterBy.label'
+  'viewOptions.hideArchived': 'viewOptions.hideArchived'
+  'viewOptions.showArchived': 'viewOptions.showArchived'
+  'viewOptions.onlyArchived': 'viewOptions.onlyArchived'
+  'empty.noneArchived': 'empty.noneArchived'
+  'empty.viewOthers': 'empty.viewOthers'
 }
 
 export const zh: Record<keyof WsgLocaleKeyMap, string> = {
@@ -96,21 +96,21 @@ export const zh: Record<keyof WsgLocaleKeyMap, string> = {
   stopAndArchive: '停止并归档',
   stopAndArchiveAsk: '会话仍有工作进行，停止并归档？',
   cancel: '取消',
-  viewOptionsLabel: '视图选项',
-  groupByLabel: '分组方式',
-  groupByGroups: '按分组（自定义）',
-  groupByWorkspace: '按工作区',
-  groupByWorkspaceTree: '按工作区树',
-  groupByFlat: '单列表',
-  orderByLabel: '排序方式',
-  orderByManual: '手动排序',
-  orderByUpdated: '最近更新',
-  filterByLabel: '筛选会话',
-  hideArchived: '隐藏已归档',
-  showArchived: '全部对话（显示已归档）',
-  onlyArchived: '仅显示已归档',
-  noneArchived: '暂无已归档会话',
-  viewOthers: '查看其他会话',
+  'viewOptions.label': '视图选项',
+  'groupBy.label': '分组方式',
+  'groupBy.groups': '按分组（自定义）',
+  'groupBy.workspace': '按工作区',
+  'groupBy.workspaceTree': '按工作区树',
+  'groupBy.flat': '单列表',
+  'orderBy.label': '排序方式',
+  'orderBy.manual': '手动排序',
+  'orderBy.updated': '最近更新',
+  'filterBy.label': '筛选会话',
+  'viewOptions.hideArchived': '隐藏已归档',
+  'viewOptions.showArchived': '全部对话（显示已归档）',
+  'viewOptions.onlyArchived': '仅显示已归档',
+  'empty.noneArchived': '暂无已归档会话',
+  'empty.viewOthers': '查看其他会话',
 }
 
 export const en: Record<keyof WsgLocaleKeyMap, string> = {
@@ -149,19 +149,19 @@ export const en: Record<keyof WsgLocaleKeyMap, string> = {
   stopAndArchive: 'Stop and archive',
   stopAndArchiveAsk: 'Session still has running work — stop and archive?',
   cancel: 'Cancel',
-  viewOptionsLabel: 'View options',
-  groupByLabel: 'Group by',
-  groupByGroups: 'By groups (custom)',
-  groupByWorkspace: 'By workspace',
-  groupByWorkspaceTree: 'By workspace tree',
-  groupByFlat: 'Single list',
-  orderByLabel: 'Order by',
-  orderByManual: 'Manual',
-  orderByUpdated: 'Recent updates',
-  filterByLabel: 'Filter sessions',
-  hideArchived: 'Hide archived',
-  showArchived: 'All (show archived)',
-  onlyArchived: 'Archived only',
-  noneArchived: 'No archived sessions',
-  viewOthers: 'View other sessions',
+  'viewOptions.label': 'View options',
+  'groupBy.label': 'Group by',
+  'groupBy.groups': 'By groups (custom)',
+  'groupBy.workspace': 'By workspace',
+  'groupBy.workspaceTree': 'By workspace tree',
+  'groupBy.flat': 'Single list',
+  'orderBy.label': 'Order by',
+  'orderBy.manual': 'Manual',
+  'orderBy.updated': 'Recent updates',
+  'filterBy.label': 'Filter sessions',
+  'viewOptions.hideArchived': 'Hide archived',
+  'viewOptions.showArchived': 'All (show archived)',
+  'viewOptions.onlyArchived': 'Archived only',
+  'empty.noneArchived': 'No archived sessions',
+  'empty.viewOthers': 'View other sessions',
 }
