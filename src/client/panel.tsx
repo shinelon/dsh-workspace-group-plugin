@@ -23,6 +23,8 @@ export interface WorkspaceView {
   path: string
   title: string
   sessionIds: readonly string[]
+  /** ISO-8601 last-mutation instant (official registry row). */
+  readonly updatedAt: string
 }
 
 export interface SessionSummary {
