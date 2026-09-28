@@ -295,6 +295,8 @@ function RegionBody(
   const [sessionRenameDraft, setSessionRenameDraft] = useState('')
   const [stopAsk, setStopAsk] = useState<{ sessionId: string; title: string } | null>(null)
   const [adding, setAdding] = useState(false)
+  const [creatingGroup, setCreatingGroup] = useState(false)
+  const [createGroupDraft, setCreateGroupDraft] = useState('')
   const [view, setViewState] = useState<ViewOpts>(loadView)
 
   const setView = useCallback((patch: Partial<ViewOpts>) => {
@@ -357,6 +359,23 @@ function RegionBody(
       }
     })
   }, [run, wsg.ws])
+
+  const startCreateGroup = useCallback(() => {
+    setCreatingGroup(true)
+    setCreateGroupDraft('')
+  }, [])
+
+  const commitCreateGroup = useCallback(() => {
+    const title = createGroupDraft.trim()
+    setCreatingGroup(false)
+    setCreateGroupDraft('')
+    if (title === '') return
+    void run(async () => {
+      const created = await wsg.api.create(title)
+      if (created.ok) setExpanded(previous => new Set(previous).add(`g:${created.value.group.id}`))
+      await refreshGroups()
+    })
+  }, [createGroupDraft, refreshGroups, run, wsg.api])
 
   /** One workspace's sessions under the current ordering + archived filter. */
   const sessionsOf = useCallback((workspace: WorkspaceView): SessionSummary[] => {
@@ -929,7 +948,33 @@ function RegionBody(
         <span className={SHELL.sectionLabel}>{t('workspaceTitle')}</span>
         <span style={R.badge}>{t('panel')}</span>
         <div style={S.grow} />
+        {creatingGroup && (
+          <input
+            autoFocus
+            className={ROWS.renameInput}
+            style={{ width: 160 }}
+            value={createGroupDraft}
+            placeholder={t('createGroup')}
+            disabled={busy}
+            onClick={event => event.stopPropagation()}
+            onKeyDown={event => {
+              if (event.key === 'Enter') commitCreateGroup()
+              if (event.key === 'Escape') { setCreatingGroup(false); setCreateGroupDraft('') }
+            }}
+            onBlur={() => commitCreateGroup()}
+          />
+        )}
         <div className={SHELL.headerActions}>
+          <button
+            type="button"
+            className={SHELL.iconButton}
+            title={t('createGroup')}
+            aria-label={t('createGroup')}
+            disabled={busy}
+            onClick={event => { event.stopPropagation(); startCreateGroup() }}
+          >
+            <Ico name="IconPlusOutline" size={16} />
+          </button>
           {renderViewOptionsMenu()}
           <button type="button" className={SHELL.iconButton} title={t('addWorkspace')} disabled={busy || adding} onClick={addWorkspace}>
             <Ico name="IconFolderCloseRegular" size={16} />
