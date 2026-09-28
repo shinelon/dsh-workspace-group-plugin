@@ -964,7 +964,8 @@ function RegionBody(
             onBlur={() => commitCreateGroup()}
           />
         )}
-        <div className={SHELL.headerActions}>
+        {/* Official class caps headerActions at 60px for two buttons; four need more. */}
+        <div className={SHELL.headerActions} style={{ maxWidth: 'none' }}>
           <button
             type="button"
             className={SHELL.iconButton}
