@@ -1,0 +1,75 @@
+{
+  "name": "@local/workspace-group-manager",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Custom workspace groups for the DSH web sidebar: a dedicated panel that organizes working directories into user-defined groups, with inline session browsing. · 在 DSH Web 侧边栏以自定义分组组织工作目录的独立面板。",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "workspace",
+    "groups"
+  ],
+  "license": "MIT",
+  "icon": "./icon.svg",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shinelon/dsh-workspace-group-plugin.git"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": "./src/host/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "src/host/**/*.js",
+    "lib/client.js",
+    "lib/client.js.map",
+    "cordis.patch.yml",
+    "icon.svg",
+    "locale/*.json"
+  ],
+  "dsh": {
+    "engines": {
+      "dsh": ">=0.1.7-rc.2"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-workspace",
+        "@deepseek-ai/dsh-client-ui-session",
+        "@deepseek-ai/dsh-api-workspace-controller"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-home-paths": "^0.1.7-rc.2"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": ">=0.1.7-rc.2",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "~18.3.1",
+    "esbuild": "^0.25.0",
+    "react": "^18.2.0",
+    "typescript": "^5.6.0"
+  }
+}

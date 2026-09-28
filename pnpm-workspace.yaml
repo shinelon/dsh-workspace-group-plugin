@@ -1,0 +1,6 @@
+allowBuilds:
+  esbuild: true
+# The @deepseek-ai/dsh peer is engine-compatibility metadata only (the host
+# provides it at runtime); auto-installing it would drag DSH's whole native
+# dependency tree into this dev workspace for nothing.
+autoInstallPeers: false

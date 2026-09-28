@@ -1,0 +1,9 @@
+# @local/workspace-group-manager bundle patch: inserts the dual-face plugin row
+# into the web profile roster. The node half (exports ".") runs in the host
+# process (/workspace-group-manager/* HTTP routes over the groups JSON store),
+# and the dsh.client declaration in package.json makes the browser half
+# (exports "./client", served at /plugins/<id>/client.js) register the
+# "分组" main panel (main keyed slot + sidebar.panellist icon row).
+- insert:
+    - id: workspace-group-manager
+      name: '@local/workspace-group-manager'
