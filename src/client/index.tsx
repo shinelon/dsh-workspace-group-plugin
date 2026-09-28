@@ -69,17 +69,25 @@ export function apply(ctx: ClientContext): void {
 
   const t = ctx.locale.bind(NS)
 
-  ctx.inject(['slots', 'uiWorkspace', 'workspaces'], (scope: {
+  ctx.inject(['slots', 'uiWorkspace', 'workspaces', 'sessions'], (scope: {
     slots: SlotRegistry
     uiWorkspace: {
       openSession(target: unknown): void
       startSession(workspaceId?: unknown): void
       pickDirectory(): Promise<string | null>
+      forkSession(sessionId: unknown): Promise<unknown>
+      pinSession(sessionId: unknown): Promise<unknown>
+      unpinSession(sessionId: unknown): Promise<unknown>
     }
     workspaces: {
       create(input: { path: string }): Promise<unknown>
       rename(workspaceId: string, title: string): Promise<unknown>
       delete(workspaceId: string): Promise<unknown>
+      archiveSession(sessionId: string, options?: { readonly stopActivity?: boolean }): Promise<unknown>
+      unarchiveSession(sessionId: string): Promise<unknown>
+    }
+    sessions: {
+      rename(sessionId: string, title: string): Promise<unknown>
     }
   }) => {
     const slots = scope.slots
@@ -88,6 +96,13 @@ export function apply(ctx: ClientContext): void {
       nav: {
         openSession: (sessionId: string) => { scope.uiWorkspace.openSession(sessionId) },
         startSession: (workspaceId?: string) => { scope.uiWorkspace.startSession(workspaceId) },
+        renameSession: (sessionId: string, title: string) => scope.sessions.rename(sessionId, title),
+        forkSession: (sessionId: string) => scope.uiWorkspace.forkSession(sessionId),
+        pinSession: (sessionId: string) => scope.uiWorkspace.pinSession(sessionId),
+        unpinSession: (sessionId: string) => scope.uiWorkspace.unpinSession(sessionId),
+        archiveSession: (sessionId: string) => scope.workspaces.archiveSession(sessionId),
+        archiveSessionStop: (sessionId: string) => scope.workspaces.archiveSession(sessionId, { stopActivity: true }),
+        unarchiveSession: (sessionId: string) => scope.workspaces.unarchiveSession(sessionId),
       },
       ws: {
         create: (path: string) => scope.workspaces.create({ path }),

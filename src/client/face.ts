@@ -10,10 +10,19 @@ import type { groupsApi } from './api'
 /** Everything a client surface of this plugin receives via its inject face. */
 export interface WsgFace {
   api: typeof groupsApi
-  /** Cross-panel navigation, bound to ctx.uiWorkspace. */
+  /** Cross-panel navigation + session operations, bound to ctx.uiWorkspace / ctx.sessions. */
   nav: {
     openSession(sessionId: string): void
     startSession(workspaceId?: string): void
+    renameSession(sessionId: string, title: string): Promise<unknown>
+    forkSession(sessionId: string): Promise<unknown>
+    pinSession(sessionId: string): Promise<unknown>
+    unpinSession(sessionId: string): Promise<unknown>
+    /** Plain archive; rejects when the session still runs (offer stop-and-archive). */
+    archiveSession(sessionId: string): Promise<unknown>
+    /** Archive after the host stopped the session's running work. */
+    archiveSessionStop(sessionId: string): Promise<unknown>
+    unarchiveSession(sessionId: string): Promise<unknown>
   }
   /** Official workspace mutations, bound to ctx.workspaces / ctx.uiWorkspace. */
   ws: {

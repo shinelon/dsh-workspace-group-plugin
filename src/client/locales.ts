@@ -34,6 +34,15 @@ export interface WsgLocaleKeyMap {
   dropToUngrouped: 'dropToUngrouped'
   useOfficialView: 'useOfficialView'
   useGroupedView: 'useGroupedView'
+  more: 'more'
+  pin: 'pin'
+  unpin: 'unpin'
+  fork: 'fork'
+  archive: 'archive'
+  unarchive: 'unarchive'
+  stopAndArchive: 'stopAndArchive'
+  stopAndArchiveAsk: 'stopAndArchiveAsk'
+  cancel: 'cancel'
 }
 
 export const zh: Record<keyof WsgLocaleKeyMap, string> = {
@@ -63,6 +72,15 @@ export const zh: Record<keyof WsgLocaleKeyMap, string> = {
   dropToUngrouped: '拖到此处移出分组',
   useOfficialView: '使用官方视图',
   useGroupedView: '工作区分组视图',
+  more: '更多',
+  pin: '置顶',
+  unpin: '取消置顶',
+  fork: '分叉',
+  archive: '归档',
+  unarchive: '取消归档',
+  stopAndArchive: '停止并归档',
+  stopAndArchiveAsk: '会话仍有工作进行，停止并归档？',
+  cancel: '取消',
 }
 
 export const en: Record<keyof WsgLocaleKeyMap, string> = {
@@ -92,4 +110,13 @@ export const en: Record<keyof WsgLocaleKeyMap, string> = {
   dropToUngrouped: 'Drop here to ungroup',
   useOfficialView: 'Use official view',
   useGroupedView: 'Workspace groups view',
+  more: 'More',
+  pin: 'Pin',
+  unpin: 'Unpin',
+  fork: 'Fork',
+  archive: 'Archive',
+  unarchive: 'Unarchive',
+  stopAndArchive: 'Stop and archive',
+  stopAndArchiveAsk: 'Session still has running work — stop and archive?',
+  cancel: 'Cancel',
 }
