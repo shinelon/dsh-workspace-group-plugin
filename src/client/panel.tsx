@@ -18,14 +18,14 @@ import type { GroupDrag } from './group-move'
 // Structural runtime shapes (host projections; not imported at runtime).
 // ---------------------------------------------------------------------------
 
-interface WorkspaceView {
+export interface WorkspaceView {
   workspaceId: string
   path: string
   title: string
   sessionIds: readonly string[]
 }
 
-interface SessionSummary {
+export interface SessionSummary {
   id: string
   displayTitle: string
   running: boolean
@@ -61,7 +61,7 @@ export interface GroupPanelProps extends GroupPanelInjected {
 // Styles (inline; neutral palette that works on the dark shell).
 // ---------------------------------------------------------------------------
 
-const S = {
+export const S = {
   root: {
     height: '100%',
     overflowY: 'auto',
@@ -251,7 +251,7 @@ const ROW_HOVER = { background: 'rgba(127,140,158,0.14)' } as const
 // Tiny inline SVG glyphs.
 // ---------------------------------------------------------------------------
 
-function Chevron({ open }: { open: boolean }) {
+export function Chevron({ open }: { open: boolean }) {
   return (
     <svg width={10} height={10} viewBox="0 0 10 10" aria-hidden="true"
       style={{ flexShrink: 0, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 120ms' }}>
@@ -260,7 +260,7 @@ function Chevron({ open }: { open: boolean }) {
   )
 }
 
-function FolderGlyph() {
+export function FolderGlyph() {
   return (
     <svg width={14} height={14} viewBox="0 0 16 16" aria-hidden="true" style={{ flexShrink: 0, opacity: 0.75 }}>
       <path d="M1.5 4.2c0-.94.76-1.7 1.7-1.7h2.9c.45 0 .88.18 1.2.5l1 1c.32.32.75.5 1.2.5h4.3c.94 0 1.7.76 1.7 1.7v6.1c0 .94-.76 1.7-1.7 1.7H3.2a1.7 1.7 0 0 1-1.7-1.7V4.2Z"
@@ -271,7 +271,7 @@ function FolderGlyph() {
   )
 }
 
-function PlusGlyph() {
+export function PlusGlyph() {
   return (
     <svg width={12} height={12} viewBox="0 0 12 12" aria-hidden="true">
       <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
@@ -279,7 +279,7 @@ function PlusGlyph() {
   )
 }
 
-function DotsGlyph() {
+export function DotsGlyph() {
   return (
     <svg width={12} height={12} viewBox="0 0 12 12" aria-hidden="true">
       <circle cx={2.5} cy={6} r={1.1} fill="currentColor" />
@@ -307,7 +307,7 @@ export function PanelIcon({ size }: { size?: number }) {
 // ---------------------------------------------------------------------------
 
 /** Language-neutral compact relative time ("3m" / "5h" / "2d"). */
-function formatRelative(updatedAtMs: number): string {
+export function formatRelative(updatedAtMs: number): string {
   const delta = Math.max(0, Date.now() - updatedAtMs)
   const minutes = Math.floor(delta / 60_000)
   if (minutes < 1) return 'now'
@@ -319,10 +319,25 @@ function formatRelative(updatedAtMs: number): string {
   return `${Math.floor(days / 30)}mo`
 }
 
-function basename(path: string): string {
+export function basename(path: string): string {
   const normalized = path.replace(/[\\/]+$/, '')
   const index = Math.max(normalized.lastIndexOf('\\'), normalized.lastIndexOf('/'))
   return index >= 0 ? normalized.slice(index + 1) : normalized
+}
+
+/** Visible sessions of one workspace: real, non-archived, non-blank, non-subagent, newest first. */
+export function visibleSessions(
+  workspace: WorkspaceView,
+  byId: Record<string, SessionSummary>,
+  archived: ReadonlySet<string>,
+): SessionSummary[] {
+  return workspace.sessionIds
+    .map(id => byId[id])
+    .filter((summary): summary is SessionSummary => summary !== undefined
+      && !summary.blank
+      && summary.origin !== 'subagent'
+      && !archived.has(summary.id))
+    .sort((left, right) => right.updatedAt - left.updatedAt)
 }
 
 type MenuState =
@@ -454,15 +469,10 @@ export function GroupPanel(props: GroupPanelProps) {
   const archivedSet = useMemo(() => new Set(archivedIds), [archivedIds])
 
   /** Visible sessions of one workspace: real, non-archived, non-blank, non-subagent, newest first. */
-  const sessionsOf = useCallback((workspace: WorkspaceView): SessionSummary[] => {
-    return workspace.sessionIds
-      .map(id => byId[id])
-      .filter((summary): summary is SessionSummary => summary !== undefined
-        && !summary.blank
-        && summary.origin !== 'subagent'
-        && !archivedSet.has(summary.id))
-      .sort((left, right) => right.updatedAt - left.updatedAt)
-  }, [byId, archivedSet])
+  const sessionsOf = useCallback(
+    (workspace: WorkspaceView) => visibleSessions(workspace, byId, archivedSet),
+    [byId, archivedSet],
+  )
 
   const startCreate = useCallback(() => {
     setCreating(true)

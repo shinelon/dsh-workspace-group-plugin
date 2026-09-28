@@ -1,14 +1,19 @@
 /**
- * Workspace-group surface plugin, browser half. Registers the 「分组」 main
- * panel (`main` keyed slot + `sidebar.panellist` icon row — the same shape as
- * the shipped schedule/plugin-manager panels) once the layout shell declares
- * those slots. Navigation verbs come from the uiWorkspace service; management
- * verbs call this package's host /workspace-group-manager routes.
+ * Workspace-group surface plugin, browser half. Two capabilities:
+ *
+ * 1. The 「分组」 main panel (`main` keyed slot + `sidebar.panellist` icon
+ *    row) — always registered.
+ * 2. The grouped sidebar region (Phase 0+): while `wsg.sidebarMode` is not
+ *    'official', shadows the official WorkspaceBrowser under
+ *    `sidebar.workspaces` at priority -1; otherwise registers a small
+ *    `sidebar.footer.action` sentinel that switches back. The mode flag is
+ *    read at apply time; switching reloads the page.
  * @module dsh-workspace-group-manager/client
  */
 
 import { groupsApi } from './api'
 import { GroupPanel, PanelIcon } from './panel'
+import { GroupedRegion, MODE_KEY, OfficialModeSentinel } from './region'
 import { NS, zh, en } from './locales'
 
 /** The locale namespace owned by this plugin. */
@@ -37,11 +42,20 @@ interface SlotRegistry {
 /** Client services required before this module's apply runs. */
 export const inject = ['slots', 'locale']
 
+function sidebarMode(): 'grouped' | 'official' {
+  try {
+    return localStorage.getItem(MODE_KEY) === 'official' ? 'official' : 'grouped'
+  } catch {
+    return 'grouped'
+  }
+}
+
 /**
- * Client plugin body: dictionaries, then the panel registrations with the
- * injected navigation face. Slot declarations come from ui-layout/ui-sidebar
- * and the uiWorkspace service from ui-workspace — activation order is not
- * constrained, so every wait is declaration/service aware.
+ * Client plugin body: dictionaries, then the panel + region registrations
+ * with the injected navigation/mutation face. Slot declarations come from
+ * ui-layout/ui-sidebar and the services (uiWorkspace, workspaces model) from
+ * their owners — activation order is not constrained, so every wait is
+ * declaration/service aware.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
@@ -55,11 +69,17 @@ export function apply(ctx: ClientContext): void {
 
   const t = ctx.locale.bind(NS)
 
-  ctx.inject(['slots', 'uiWorkspace'], (scope: {
+  ctx.inject(['slots', 'uiWorkspace', 'workspaces'], (scope: {
     slots: SlotRegistry
     uiWorkspace: {
       openSession(target: unknown): void
       startSession(workspaceId?: unknown): void
+      pickDirectory(): Promise<string | null>
+    }
+    workspaces: {
+      create(input: { path: string }): Promise<unknown>
+      rename(workspaceId: string, title: string): Promise<unknown>
+      delete(workspaceId: string): Promise<unknown>
     }
   }) => {
     const slots = scope.slots
@@ -68,6 +88,12 @@ export function apply(ctx: ClientContext): void {
       nav: {
         openSession: (sessionId: string) => { scope.uiWorkspace.openSession(sessionId) },
         startSession: (workspaceId?: string) => { scope.uiWorkspace.startSession(workspaceId) },
+      },
+      ws: {
+        create: (path: string) => scope.workspaces.create({ path }),
+        rename: (workspaceId: string, title: string) => scope.workspaces.rename(workspaceId, title),
+        remove: (workspaceId: string) => scope.workspaces.delete(workspaceId),
+        pickDirectory: () => scope.uiWorkspace.pickDirectory(),
       },
     }
 
@@ -93,5 +119,32 @@ export function apply(ctx: ClientContext): void {
       },
       PanelIcon,
     ))
+
+    if (sidebarMode() === 'grouped') {
+      // Shadow the official WorkspaceBrowser: lower priority wins the single
+      // slot; the official entry stays live, so disposing this registration
+      // (mode switch / plugin disable) restores it verbatim.
+      slots.inject('sidebar.workspaces', () => slots.register(
+        {
+          name: 'sidebar.workspaces',
+          priority: -1,
+          locale: NS,
+          inject: () => ({ wsg }),
+        },
+        GroupedRegion,
+      ))
+    } else {
+      // Official view: park a switch-back affordance at the sidebar foot.
+      slots.inject('sidebar.footer.action', () => slots.register(
+        {
+          name: 'sidebar.footer.action',
+          id: 'workspace-groups-official-toggle',
+          order: 50,
+          locale: NS,
+          label: () => t('useGroupedView'),
+        },
+        OfficialModeSentinel,
+      ))
+    }
   })
 }
