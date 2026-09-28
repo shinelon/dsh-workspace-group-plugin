@@ -255,18 +255,16 @@ export function Chevron({ open }: { open: boolean }) {
   return (
     <svg width={10} height={10} viewBox="0 0 10 10" aria-hidden="true"
       style={{ flexShrink: 0, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 120ms' }}>
-      <path d="M3 1.5 7 5 3 8.5" stroke="currentColor" strokeWidth={1.4} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2.5 1.5 8.5 5 2.5 8.5Z" fill="currentColor" />
     </svg>
   )
 }
 
 export function FolderGlyph() {
   return (
-    <svg width={14} height={14} viewBox="0 0 16 16" aria-hidden="true" style={{ flexShrink: 0, opacity: 0.75 }}>
-      <path d="M1.5 4.2c0-.94.76-1.7 1.7-1.7h2.9c.45 0 .88.18 1.2.5l1 1c.32.32.75.5 1.2.5h4.3c.94 0 1.7.76 1.7 1.7v6.1c0 .94-.76 1.7-1.7 1.7H3.2a1.7 1.7 0 0 1-1.7-1.7V4.2Z"
-        fill="currentColor" opacity={0.35} />
-      <rect x={4.4} y={8.4} width={3} height={2.6} rx={0.5} fill="currentColor" />
-      <rect x={8.6} y={8.4} width={3} height={2.6} rx={0.5} fill="currentColor" />
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ flexShrink: 0, opacity: 0.8 }}>
+      <path d="M1.5 4.3c0-.99.8-1.8 1.8-1.8h3.06c.48 0 .94.2 1.27.53l1.14 1.14c.33.33.79.53 1.27.53h4.06c1 0 1.8.8 1.8 1.8v6.1c0 1-.8 1.8-1.8 1.8H3.3c-1 0-1.8-.8-1.8-1.8V4.3Z"
+        stroke="currentColor" strokeWidth={1.2} />
     </svg>
   )
 }
@@ -306,17 +304,21 @@ export function PanelIcon({ size }: { size?: number }) {
 // Helpers.
 // ---------------------------------------------------------------------------
 
-/** Language-neutral compact relative time ("3m" / "5h" / "2d"). */
-export function formatRelative(updatedAtMs: number): string {
+/** Localized compact relative time, official-style ("10分钟" / "10 min"). */
+export function formatRelative(
+  updatedAtMs: number,
+  t?: (key: string, vars?: Record<string, string | number>) => string,
+): string {
   const delta = Math.max(0, Date.now() - updatedAtMs)
   const minutes = Math.floor(delta / 60_000)
-  if (minutes < 1) return 'now'
-  if (minutes < 60) return `${minutes}m`
+  if (minutes < 1) return t ? t('relNow') : 'now'
+  if (minutes < 60) return t ? t('relMinutes', { count: minutes }) : `${minutes}m`
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h`
+  if (hours < 24) return t ? t('relHours', { count: hours }) : `${hours}h`
   const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d`
-  return `${Math.floor(days / 30)}mo`
+  if (days < 30) return t ? t('relDays', { count: days }) : `${days}d`
+  const months = Math.floor(days / 30)
+  return t ? t('relMonths', { count: months }) : `${months}mo`
 }
 
 export function basename(path: string): string {

@@ -37,6 +37,8 @@ await build({
     js: [
       `\t\tmodule.exports.apply = ${GLOBAL}.apply;`,
       `\t\tmodule.exports.inject = ${GLOBAL}.inject;`,
+      '\t\t// The loader require resolves workspace-external packages (ui-primitives icons).',
+      '\t\twindow.__wsgRequire = require;',
       '\t\treturn module.exports;',
       '\t}',
       '});',
