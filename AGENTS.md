@@ -23,9 +23,9 @@
 | `pnpm-workspace.yaml` | 手写 | `allowBuilds: esbuild`；`autoInstallPeers: false`（peer 仅作引擎声明，自动安装会拖入 DSH 整棵原生依赖树且触发 ignored-builds 报错） |
 | `build.mjs` | 手写 | esbuild 打包 client，banner/footer 生成 `__ModuleLoader__` 工厂包裹 |
 | `src/host/*.js` | 手写 | 宿主半边：路由 / JSON 存储 / 回环栅栏 |
-| `src/client/*` | 手写 | 浏览器半边 TSX：面板 / 菜单 / 词典 / API |
+| `src/client/*` | 手写 | 浏览器半边 TSX：面板 / 菜单 / 拖拽矩阵 / 词典 / API |
 | `lib/client.js` | **构建产物** | 由 build.mjs 生成，勿手改 |
-| `test/*.test.mjs` | 手写 | node:test 单测（store / routes / loopback） |
+| `test/*.test.mjs` | 手写 | node:test 单测（store / routes / loopback / group-move，后者的 TS 经 `--experimental-strip-types` 直测） |
 
 ## 机制速查（修改前必读）
 
@@ -36,6 +36,7 @@
 - **存储铁律**：`store.js` 载入时容忍损坏——改名 `*.bak-<ts>` 后空启动并在 list 响应带 notice；所有变更走进程内 promise 队列串行 read-modify-write，temp+rename 原子替换；校验：title ≤100 非空、path ≤1024 非空去重、分组 ≤100、每组成员 ≤200。
 - **HTTP 面**：`/workspace-group-manager` 前缀路由，回环栅栏（loopback.js，自包含移植）先行，JSON envelope `{ok,value}|{ok:false,error:{code,message}}`，body 上限 64KB；客户端 fetch 用**文档相对路径**（无前导斜杠）。
 - **样式纪律**：面板全部内联样式（styles 对象 S），无 ui-primitives import、无 modal portal（延续 mcp 插件对设置面板 z-index 的规避经验；本插件是主面板，菜单用行内 absolute + fixed 透明 backdrop 关闭）。
+- **拖拽纪律**：目录行原生 HTML5 draggable（分组内行 fromGroupId=分组 id，未分组行 null）；drop 目标仅分组头与「未分组」头；可放置性/移动计划统一由 `group-move.ts` 纯函数裁决（矩阵：源分组→他组=remove+add、源分组→未分组=remove、未分组→组=add、同组/未分组→未分组=null）。dragOver 高亮用 outline（行悬停背景由 mouseenter/leave 直接改 style，二者互不干扰）；dragLeave 用 relatedTarget containment 防子元素闪烁；拖拽激活期间「未分组」头始终渲染（否则最后一个成员无法拖出）。
 - **pnpm 配置**：`autoInstallPeers: false` 写在 pnpm-workspace.yaml（pnpm 11 不读项目 .npmrc 的该键）；peer `@deepseek-ai/dsh` 仅作兼容性声明，宿主运行时由 DSH 自身提供。
 
 ## 开发循环
@@ -53,11 +54,11 @@ pnpm run build      # 产出 lib/client.js
 
 1. `node --check src/host/*.js` + `pnpm run typecheck && pnpm test && pnpm run build` 全部实际执行并确认输出；
 2. 存储层改动后 `test/store.test.mjs` 的「未触及语义」断言（幂等成员、损坏备份、并发串行）必须全绿；
-3. GUI 手动验收：侧边栏出现「分组」入口；新建分组 → 从「未分组」添加目录 → 展开会话、点击跳转、「+」新会话 → 重命名/移动/移出/删除 → 刷新页面数据仍在 → 中英文案正确；
+3. GUI 手动验收：侧边栏出现「分组」入口；新建分组 → 从「未分组」添加目录 → 展开会话、点击跳转、「+」新会话 → 重命名/移动/移出/删除 → **拖拽：目录行拖到他组头/未分组头（目标高亮、放下即迁移并展开目标），拖回原分组不高亮不接收** → 刷新页面数据仍在 → 中英文案正确；
 4. 检查 `<DSH home>/workspace-groups.json` 内容与 UI 一致。
 
 ## 已知边界
 
-- 不改动/遮蔽内置工作区浏览器；分组排序不持久化（按创建顺序）；无拖拽。
+- 不改动/遮蔽内置工作区浏览器；分组排序不持久化（按创建顺序）；拖拽排序分组头不做（目录行的分组拖拽已支持）。
 - 数据为本机全局一份（不分 profile）；多标签并发写 last-write-wins。
 - 路由仅回环可用（与 mcp 插件同款栅栏），远程浏览器部署不可管理分组。

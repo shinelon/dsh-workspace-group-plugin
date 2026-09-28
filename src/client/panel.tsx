@@ -8,8 +8,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { DragEvent as ReactDragEvent } from 'react'
 import { groupsApi } from './api'
 import type { WorkspaceGroup } from './api'
+import { computeGroupMove, isDropTarget } from './group-move'
+import type { GroupDrag } from './group-move'
 
 // ---------------------------------------------------------------------------
 // Structural runtime shapes (host projections; not imported at runtime).
@@ -238,6 +241,8 @@ const S = {
   } as const,
   menuLabel: { fontSize: 11, opacity: 0.5, padding: '4px 8px 2px' } as const,
   separator: { height: 1, background: 'rgba(127,140,158,0.25)', margin: '3px 4px' } as const,
+  dragOverHead: { outline: '2px solid #4d78cc', outlineOffset: '-2px' } as const,
+  draggingRow: { opacity: 0.45 } as const,
 }
 
 const ROW_HOVER = { background: 'rgba(127,140,158,0.14)' } as const
@@ -358,6 +363,8 @@ export function GroupPanel(props: GroupPanelProps) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const [ungroupedOpen, setUngroupedOpen] = useState(false)
   const [menu, setMenu] = useState<MenuState>(null)
+  const [drag, setDrag] = useState<GroupDrag | null>(null)
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     const result = await api.list()
@@ -393,6 +400,52 @@ export function GroupPanel(props: GroupPanelProps) {
       return next
     })
   }, [])
+
+  // --- drag & drop -------------------------------------------------------
+
+  const startDrag = (path: string, fromGroupId: string | null) => (event: ReactDragEvent<HTMLDivElement>) => {
+    event.dataTransfer.setData('application/x-wsg-path', path)
+    event.dataTransfer.setData('text/plain', path)
+    event.dataTransfer.effectAllowed = 'move'
+    setDrag({ path, fromGroupId })
+    setMenu(null)
+    setConfirmingDeleteId(null)
+  }
+
+  const endDrag = () => {
+    setDrag(null)
+    setDragOverKey(null)
+  }
+
+  /** Highlight only headers that would actually take this drop (move matrix). */
+  const headerDragOver = (key: string, targetGroupId: string | null) => (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!isDropTarget(drag, targetGroupId)) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    setDragOverKey(key)
+  }
+
+  const headerDragLeave = (key: string) => (event: ReactDragEvent<HTMLDivElement>) => {
+    // Child elements fire dragleave on entry — ignore leaves that stay inside.
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+    setDragOverKey(previous => (previous === key ? null : previous))
+  }
+
+  const headerDrop = (targetGroupId: string | null) => (event: ReactDragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const move = computeGroupMove(drag, targetGroupId)
+    setDrag(null)
+    setDragOverKey(null)
+    if (move === null) return
+    const targetGroup = move.targetGroupId
+    if (targetGroup !== null) setExpanded(previous => new Set(previous).add(`g:${targetGroup}`))
+    const remove = move.remove
+    const add = move.add
+    void run(async () => {
+      if (remove) await api.removeMember(remove.groupId, remove.path)
+      if (add) await api.addMembers(add.groupId, [add.path])
+    })
+  }
 
   const byPath = useMemo(() => new Map(items.map(workspace => [workspace.path, workspace])), [items])
   const groupedPaths = useMemo(() => new Set((groups ?? []).flatMap(group => group.paths)), [groups])
@@ -504,8 +557,11 @@ export function GroupPanel(props: GroupPanelProps) {
         return (
           <div style={S.section} key={group.id}>
             <div
-              style={S.groupRow}
+              style={{ ...S.groupRow, ...(dragOverKey === `g:${group.id}` ? S.dragOverHead : null) }}
               onClick={() => toggle(`g:${group.id}`)}
+              onDragOver={headerDragOver(`g:${group.id}`, group.id)}
+              onDragLeave={headerDragLeave(`g:${group.id}`)}
+              onDrop={headerDrop(group.id)}
               onMouseEnter={event => { Object.assign(event.currentTarget.style, ROW_HOVER) }}
               onMouseLeave={event => { event.currentTarget.style.background = 'transparent' }}
             >
@@ -612,7 +668,10 @@ export function GroupPanel(props: GroupPanelProps) {
                   return (
                     <div key={path}>
                       <div
-                        style={S.wsRow}
+                        style={{ ...S.wsRow, ...(drag?.path === path ? S.draggingRow : null) }}
+                        draggable
+                        onDragStart={startDrag(path, group.id)}
+                        onDragEnd={endDrag}
                         onClick={() => workspace !== undefined && toggle(`w:${path}`)}
                         onMouseEnter={event => { Object.assign(event.currentTarget.style, ROW_HOVER) }}
                         onMouseLeave={event => { event.currentTarget.style.background = 'transparent' }}
@@ -706,22 +765,31 @@ export function GroupPanel(props: GroupPanelProps) {
         )
       })}
 
-      {ungrouped.length > 0 && (
+      {(ungrouped.length > 0 || drag?.fromGroupId != null) && (
         <div style={S.section}>
           <div
-            style={S.groupRow}
+            style={{ ...S.groupRow, ...(dragOverKey === 'ungrouped' ? S.dragOverHead : null) }}
             onClick={() => setUngroupedOpen(open => !open)}
+            onDragOver={headerDragOver('ungrouped', null)}
+            onDragLeave={headerDragLeave('ungrouped')}
+            onDrop={headerDrop(null)}
             onMouseEnter={event => { Object.assign(event.currentTarget.style, ROW_HOVER) }}
             onMouseLeave={event => { event.currentTarget.style.background = 'transparent' }}
           >
             <Chevron open={ungroupedOpen} />
             <span style={{ ...S.groupTitle, opacity: 0.8 }}>{t('ungrouped')}</span>
             <span style={S.count}>{t('membersCount', { count: ungrouped.length })}</span>
+            {ungrouped.length === 0 && drag?.fromGroupId != null && (
+              <span style={S.menuLabel}>{t('dropToUngrouped')}</span>
+            )}
           </div>
           {ungroupedOpen && ungrouped.map(workspace => (
             <div key={workspace.path}>
               <div
-                style={S.wsRow}
+                style={{ ...S.wsRow, ...(drag?.path === workspace.path ? S.draggingRow : null) }}
+                draggable
+                onDragStart={startDrag(workspace.path, null)}
+                onDragEnd={endDrag}
                 onClick={() => toggle(`w:u:${workspace.path}`)}
                 onMouseEnter={event => { Object.assign(event.currentTarget.style, ROW_HOVER) }}
                 onMouseLeave={event => { event.currentTarget.style.background = 'transparent' }}

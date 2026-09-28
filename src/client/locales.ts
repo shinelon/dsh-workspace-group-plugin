@@ -30,6 +30,7 @@ export interface WsgLocaleKeyMap {
   retry: 'retry'
   incompatible: 'incompatible'
   membersCount: 'membersCount'
+  dropToUngrouped: 'dropToUngrouped'
 }
 
 export const zh: Record<keyof WsgLocaleKeyMap, string> = {
@@ -55,6 +56,7 @@ export const zh: Record<keyof WsgLocaleKeyMap, string> = {
   retry: '重试',
   incompatible: '此面板需要较新版本的 DSH（缺少全局工作区数据）。',
   membersCount: '{count} 个目录',
+  dropToUngrouped: '拖到此处移出分组',
 }
 
 export const en: Record<keyof WsgLocaleKeyMap, string> = {
@@ -80,4 +82,5 @@ export const en: Record<keyof WsgLocaleKeyMap, string> = {
   retry: 'Retry',
   incompatible: 'This panel needs a newer DSH (global workspace data missing).',
   membersCount: '{count} directories',
+  dropToUngrouped: 'Drop here to ungroup',
 }

@@ -8,7 +8,7 @@ DeepSeek Harness（DSH）Web 客户端插件：在侧边栏新增一个「分组
 
 - **侧边栏「分组」面板**：与内置「定时任务」「插件管理」面板同级（`sidebar.panellist` 图标行 + `main` keyed 槽页面），内置工作区浏览器零改动。
 - **自定义分组**：新建 / 重命名 / 删除分组；一个工作目录可属多个分组；不属于任何分组的工作目录进入「未分组」区。
-- **菜单管理**：工作目录行「移动到分组… / 新建分组并移入 / 从分组移除」；分组行「添加工作目录」。
+- **菜单 + 拖拽管理**：工作目录行可直接拖到目标分组头移入、拖到「未分组」头移出（合法目标高亮，放下后目标分组自动展开）；也可走「…」菜单「移动到分组… / 新建分组并移入 / 从分组移除」；分组行「添加工作目录」。
 - **会话浏览**：展开分组内的工作目录显示其会话（过滤归档 / 空白 / subagent 行，运行中带状态点），点击会话跳转对话，行尾「+」在该目录开新会话。
 - **持久化**：分组数据存 `<DSH home>/workspace-groups.json`（尊重 `DSH_HOME`；默认 `~/.dsh`），跨会话、跨重启保留。
 - **中英文案**：跟随 DSH 语言设置。
@@ -48,6 +48,7 @@ pnpm run build      # esbuild 打包 client → lib/client.js
 浏览器半边 src/client（TSX → esbuild → lib/client.js）
   index.tsx   注册 locale 词典；slots.inject('main' + 'sidebar.panellist')
   panel.tsx   分组面板：分组 → 工作目录 → 会话；内联样式，无 portal
+  group-move.ts  拖拽移动矩阵（纯函数，可单测）
   api.ts      /workspace-group-manager/* envelope fetch（文档相对路径）
   locales.ts  zh / en 词典（NS = workspace-group-manager）
 宿主半边 src/host（纯 ESM JS，免构建）
