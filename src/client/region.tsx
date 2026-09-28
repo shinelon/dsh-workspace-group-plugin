@@ -974,7 +974,7 @@ function RegionBody(
             disabled={busy}
             onClick={event => { event.stopPropagation(); startCreateGroup() }}
           >
-            <Ico name="IconPlusOutline" size={16} />
+            <Ico name="IconPlusOutlineRegular" size={16} />
           </button>
           {renderViewOptionsMenu()}
           <button type="button" className={SHELL.iconButton} title={t('addWorkspace')} disabled={busy || adding} onClick={addWorkspace}>
