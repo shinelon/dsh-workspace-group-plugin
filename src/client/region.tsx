@@ -18,8 +18,8 @@
  * @module dsh-workspace-group-manager/client/region
  */
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
-import type { CSSProperties, DragEvent as ReactDragEvent, ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties, DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 import type { WorkspaceGroup } from './api'
 import type { WsgFace } from './face'
 import { basename, formatRelative, PanelIcon, S } from './panel'
@@ -309,6 +309,9 @@ function RegionBody(
   const [view, setViewState] = useState<ViewOpts>(loadView)
   const [drag, setDrag] = useState<RegionDrag | null>(null)
   const [dropMark, setDropMark] = useState<{ key: string; half: 'before' | 'after' } | null>(null)
+  const groupsRef = useRef<WorkspaceGroup[]>([])
+  groupsRef.current = groups ?? []
+  const pointerDragRef = useRef<{ path: string; fromGroupId: string | null; startX: number; startY: number; active: boolean } | null>(null)
 
   const setView = useCallback((patch: Partial<ViewOpts>) => {
     setViewState(previous => {
@@ -388,21 +391,120 @@ function RegionBody(
     })
   }, [createGroupDraft, refreshGroups, run, wsg.api])
 
+  // --- pointer drag for directory rows (groups mode) ----------------------
+  // Native HTML5 drag proved unreliable for these rows in this environment;
+  // a mousedown → threshold → elementFromPoint hit-test → mouseup commit is
+  // deterministic. Group headers keep their (working) native drag.
+
+  const commitPointerDrop = (
+    path: string,
+    fromGroupId: string | null,
+    dirPath: string | null,
+    groupId: string | null,
+    half: 'before' | 'after',
+  ) => {
+    if (dirPath !== null) {
+      if (dirPath === path) return
+      const ownerGroupId = groupId
+      if (ownerGroupId === null) return
+      const targetGroup = groupsRef.current.find(group => group.id === ownerGroupId)
+      if (targetGroup === undefined) return
+      const sourceGroupId = targetGroup.paths.includes(path)
+        ? ownerGroupId
+        : (groupsRef.current.find(group => group.paths.includes(path))?.id ?? null)
+      const without = targetGroup.paths.filter(p => p !== path)
+      const index = Math.max(0, without.indexOf(dirPath)) + (half === 'after' ? 1 : 0)
+      const order = [...without.slice(0, index), path, ...without.slice(index)]
+      if (sourceGroupId === ownerGroupId) {
+        void run(async () => {
+          await wsg.api.reorderMembers(ownerGroupId, order)
+          await refreshGroups()
+        })
+      } else {
+        void run(async () => {
+          if (sourceGroupId !== null) await wsg.api.removeMember(sourceGroupId, path)
+          await wsg.api.addMembers(ownerGroupId, [path])
+          await wsg.api.reorderMembers(ownerGroupId, order)
+          await refreshGroups()
+        })
+      }
+      return
+    }
+    if (groupId === null) return
+    if (groupId === 'ungrouped') {
+      if (fromGroupId === null) return
+      setExpanded(previous => new Set(previous).add('ungrouped'))
+      void run(async () => {
+        await wsg.api.removeMember(fromGroupId, path)
+        await refreshGroups()
+      })
+      return
+    }
+    const targetGroup = groupsRef.current.find(group => group.id === groupId)
+    if (targetGroup === undefined) return
+    setExpanded(previous => new Set(previous).add(`g:${groupId}`))
+    void run(async () => {
+      if (fromGroupId !== null) await wsg.api.removeMember(fromGroupId, path)
+      const afterAdd = await wsg.api.addMembers(groupId, [path])
+      if (half === 'before' && afterAdd.ok && targetGroup.paths.length > 0) {
+        await wsg.api.reorderMembers(groupId, [path, ...targetGroup.paths])
+      }
+      await refreshGroups()
+    })
+  }
+
+  const onDirRowMouseDown = (path: string, fromGroupId: string | null) => (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    if ((event.target as HTMLElement).closest('button, input')) return
+    const startX = event.clientX
+    const startY = event.clientY
+    const state = { path, fromGroupId, startX, startY, active: false }
+    pointerDragRef.current = state
+    const onMove = (move: MouseEvent) => {
+      if (pointerDragRef.current !== state) return
+      if (!state.active) {
+        if (Math.hypot(move.clientX - startX, move.clientY - startY) < 5) return
+        state.active = true
+        setDrag({ kind: 'dir', path, fromGroupId })
+        setWsMenuPath(null)
+        setSessionMenuId(null)
+        setGroupMenuId(null)
+      }
+      move.preventDefault()
+      const hit = document.elementFromPoint(move.clientX, move.clientY)?.closest('[data-wsg-drop]') as HTMLElement | null
+      if (hit === null) { setDropMark(null); return }
+      const rect = hit.getBoundingClientRect()
+      const dirPath = hit.getAttribute('data-wsg-dir')
+      const groupId = hit.getAttribute('data-wsg-group')
+      setDropMark({ key: dirPath !== null ? `dir:${dirPath}` : `group:${groupId}`, half: move.clientY < rect.top + rect.height / 2 ? 'before' : 'after' })
+    }
+    const onUp = (up: MouseEvent) => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      if (pointerDragRef.current !== state) return
+      pointerDragRef.current = null
+      const wasActive = state.active
+      setDrag(null)
+      setDropMark(null)
+      if (!wasActive) return
+      const hit = document.elementFromPoint(up.clientX, up.clientY)?.closest('[data-wsg-drop]') as HTMLElement | null
+      if (hit === null) return
+      const dirPath = hit.getAttribute('data-wsg-dir')
+      const groupId = hit.getAttribute('data-wsg-group')
+      const rect = hit.getBoundingClientRect()
+      commitPointerDrop(path, fromGroupId, dirPath, groupId, up.clientY < rect.top + rect.height / 2 ? 'before' : 'after')
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    event.preventDefault()
+  }
+
   // --- drag & drop (groups mode): dirs change group/order, groups reorder --
 
   const clearDrag = useCallback(() => {
     setDrag(null)
     setDropMark(null)
   }, [])
-
-  const dirDragStart = (path: string, fromGroupId: string | null) => (event: ReactDragEvent<HTMLDivElement>) => {
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', path)
-    setDrag({ kind: 'dir', path, fromGroupId })
-    setWsMenuPath(null)
-    setSessionMenuId(null)
-    setGroupMenuId(null)
-  }
 
   const groupDragStart = (groupId: string) => (event: ReactDragEvent<HTMLDivElement>) => {
     event.dataTransfer.effectAllowed = 'move'
@@ -440,43 +542,6 @@ function RegionBody(
    * never gating the drop chain on the React drag state, which is visual-only
    * (dim + marker bookkeeping).
    */
-  const dirRowDragOver = (rowPath: string) => (event: ReactDragEvent<HTMLDivElement>) => {
-    if (!event.dataTransfer.types.includes('text/plain')) return
-    if (drag?.kind === 'dir' && drag.path === rowPath) return
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'move'
-    setDropMark({ key: `dir:${rowPath}`, half: markerHalf(event) })
-  }
-
-  const dirRowDrop = (rowPath: string, ownerGroupId: string) => (event: ReactDragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    const value = dragValueOf(event)
-    const half = markerHalf(event)
-    clearDrag()
-    if (value === null || value === rowPath || isGroupDragValue(value)) return
-    const targetGroup = (groups ?? []).find(group => group.id === ownerGroupId)
-    if (targetGroup === undefined) return
-    const sourceGroupId = targetGroup.paths.includes(value)
-      ? ownerGroupId
-      : ((groups ?? []).find(group => group.paths.includes(value))?.id ?? null)
-    const without = targetGroup.paths.filter(p => p !== value)
-    const index = Math.max(0, without.indexOf(rowPath)) + (half === 'after' ? 1 : 0)
-    const order = [...without.slice(0, index), value, ...without.slice(index)]
-    if (sourceGroupId === ownerGroupId) {
-      void run(async () => {
-        await wsg.api.reorderMembers(ownerGroupId, order)
-        await refreshGroups()
-      })
-    } else {
-      void run(async () => {
-        if (sourceGroupId !== null) await wsg.api.removeMember(sourceGroupId, value)
-        await wsg.api.addMembers(ownerGroupId, [value])
-        await wsg.api.reorderMembers(ownerGroupId, order)
-        await refreshGroups()
-      })
-    }
-  }
-
   const groupHeaderDragOver = (groupId: string) => (event: ReactDragEvent<HTMLDivElement>) => {
     if (!event.dataTransfer.types.includes('text/plain')) return
     if (drag?.kind === 'group' && drag.groupId === groupId) return
@@ -797,11 +862,10 @@ function RegionBody(
           role="treeitem"
           aria-expanded={rowOpen}
           onClick={() => toggle(expandKey)}
-          draggable={draggable}
-          onDragStart={draggable ? dirDragStart(path, fromGroupId) : undefined}
-          onDragEnd={draggable ? endDrag : undefined}
-          onDragOver={draggable ? dirRowDragOver(path) : undefined}
-          onDrop={draggable && fromGroupId !== null ? dirRowDrop(path, fromGroupId) : undefined}
+          data-wsg-drop={groupItems ? '' : undefined}
+          data-wsg-dir={groupItems ? path : undefined}
+          data-wsg-owner={groupItems ? (fromGroupId ?? '') : undefined}
+          onMouseDown={groupItems ? onDirRowMouseDown(path, fromGroupId) : undefined}
         >
           <span className={clsx(ROWS.slot, ROWS.folder)}>
             {workspace === undefined
@@ -944,6 +1008,8 @@ function RegionBody(
         style={{ ...indent(0), ...(draggingThisGroup ? { opacity: 0.45 } : null) }}
         role="treeitem"
         aria-expanded={open}
+        data-wsg-drop=""
+        data-wsg-group={groupId}
         onClick={() => { if (!renaming) toggle(expandKey) }}
         draggable={isRealGroup}
         onDragStart={isRealGroup ? groupDragStart(groupId) : undefined}
