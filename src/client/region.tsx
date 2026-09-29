@@ -439,7 +439,10 @@ function RegionBody(
     const index = Math.max(0, without.indexOf(rowPath)) + (mark?.half === 'after' ? 1 : 0)
     const order = [...without.slice(0, index), current.path, ...without.slice(index)]
     if (current.fromGroupId === ownerGroupId) {
-      void run(() => wsg.api.reorderMembers(ownerGroupId, order))
+      void run(async () => {
+        await wsg.api.reorderMembers(ownerGroupId, order)
+        await refreshGroups()
+      })
     } else {
       void run(async () => {
         if (current.fromGroupId !== null) await wsg.api.removeMember(current.fromGroupId, current.path)
