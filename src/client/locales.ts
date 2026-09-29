@@ -58,6 +58,14 @@ export interface WsgLocaleKeyMap {
   'viewOptions.onlyArchived': 'viewOptions.onlyArchived'
   'empty.noneArchived': 'empty.noneArchived'
   'empty.viewOthers': 'empty.viewOthers'
+  settingsNav: 'settingsNav'
+  settingsTitle: 'settingsTitle'
+  settingsDesc: 'settingsDesc'
+  settingsHint: 'settingsHint'
+  modeGrouped: 'modeGrouped'
+  modeGroupedDesc: 'modeGroupedDesc'
+  modeOfficial: 'modeOfficial'
+  modeOfficialDesc: 'modeOfficialDesc'
 }
 
 export const zh: Record<keyof WsgLocaleKeyMap, string> = {
@@ -111,6 +119,14 @@ export const zh: Record<keyof WsgLocaleKeyMap, string> = {
   'viewOptions.onlyArchived': '仅显示已归档',
   'empty.noneArchived': '暂无已归档会话',
   'empty.viewOthers': '查看其他会话',
+  settingsNav: '工作区视图',
+  settingsTitle: '工作区视图',
+  settingsDesc: '选择侧边栏「工作区」区域使用自定义分组视图，还是保持官方工作区列表。两种视图共用同一份工作区与会话数据。',
+  settingsHint: '切换立即生效，无需刷新页面。',
+  modeGrouped: '分组视图',
+  modeGroupedDesc: '按自定义分组组织工作目录',
+  modeOfficial: '官方视图',
+  modeOfficialDesc: '官方工作区列表，功能原样',
 }
 
 export const en: Record<keyof WsgLocaleKeyMap, string> = {
@@ -164,4 +180,12 @@ export const en: Record<keyof WsgLocaleKeyMap, string> = {
   'viewOptions.onlyArchived': 'Archived only',
   'empty.noneArchived': 'No archived sessions',
   'empty.viewOthers': 'View other sessions',
+  settingsNav: 'Workspace view',
+  settingsTitle: 'Workspace view',
+  settingsDesc: 'Choose whether the sidebar workspace area uses the custom grouped view or the official workspace list. Both views share the same workspaces and sessions.',
+  settingsHint: 'Changes apply immediately — no reload needed.',
+  modeGrouped: 'Grouped view',
+  modeGroupedDesc: 'Organize directories into custom groups',
+  modeOfficial: 'Official view',
+  modeOfficialDesc: 'The official workspace list, unchanged',
 }

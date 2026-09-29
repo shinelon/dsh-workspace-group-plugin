@@ -1,19 +1,27 @@
 /**
  * Workspace-group plugin, browser half. The grouped sidebar region: while
  * `wsg.sidebarMode` is not 'official', shadows the official WorkspaceBrowser
- * under `sidebar.workspaces` at priority -1; otherwise registers a small
- * `sidebar.footer.action` sentinel that switches back. The mode flag is read
- * at apply time; switching reloads the page. All group and directory
+ * under `sidebar.workspaces` at priority -1; otherwise the official browser
+ * renders untouched. The view mode is switched from the plugin's settings
+ * section (「工作区视图」) and applies LIVE — the sidebar registration is
+ * disposed and re-created on change, no reload. Group and directory
  * management lives in the region itself.
  * @module dsh-workspace-group-manager/client
  */
 
 import { groupsApi } from './api'
-import { GroupedRegion, MODE_KEY, OfficialModeSentinel } from './region'
+import { GroupedRegion } from './region'
+import { ViewModeSection, type SidebarMode } from './settings-section'
 import { NS, zh, en } from './locales'
 
 /** The locale namespace owned by this plugin. */
 export const NS_WSG = NS
+
+/** localStorage key deciding which sidebar region renders. */
+export const MODE_KEY = 'wsg.sidebarMode'
+
+/** DOM event dispatched after the persisted mode changes (drives live swap). */
+const MODE_EVENT = 'wsg.sidebarMode.change'
 
 /** Minimal structural type of the client context this plugin touches. */
 interface ClientContext {
@@ -35,7 +43,7 @@ interface SlotRegistry {
 /** Client services required before this module's apply runs. */
 export const inject = ['slots', 'locale']
 
-function sidebarMode(): 'grouped' | 'official' {
+function sidebarMode(): SidebarMode {
   try {
     return localStorage.getItem(MODE_KEY) === 'official' ? 'official' : 'grouped'
   } catch {
@@ -43,12 +51,17 @@ function sidebarMode(): 'grouped' | 'official' {
   }
 }
 
+function persistMode(mode: SidebarMode): void {
+  try { localStorage.setItem(MODE_KEY, mode) } catch { /* browser-local only */ }
+  window.dispatchEvent(new Event(MODE_EVENT))
+}
+
 /**
- * Client plugin body: dictionaries, then the region registration with the
- * injected navigation/mutation face. Slot declarations come from
- * ui-layout/ui-sidebar and the services (uiWorkspace, workspaces model) from
- * their owners — activation order is not constrained, so every wait is
- * declaration/service aware.
+ * Client plugin body: dictionaries, then the sidebar registration (live
+ * mode swap) and the settings section with the injected navigation/mutation
+ * face. Slot declarations come from ui-layout/ui-sidebar/ui-settings and the
+ * services (uiWorkspace, workspaces model) from their owners — activation
+ * order is not constrained, so every wait is declaration/service aware.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
@@ -63,6 +76,7 @@ export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(NS)
 
   ctx.inject(['slots', 'uiWorkspace', 'workspaces', 'sessions'], (scope: {
+    effect(fn: () => (() => void) | void, label: string): void
     slots: SlotRegistry
     uiWorkspace: {
       openSession(target: unknown): void
@@ -105,31 +119,55 @@ export function apply(ctx: ClientContext): void {
       },
     }
 
-    if (sidebarMode() === 'grouped') {
+    // Sidebar region per mode; `applySidebarMode` disposes and re-creates it
+    // when the settings section flips the mode (live, no reload).
+    let disposeSidebar: (() => void) | null = null
+    const applySidebarMode = () => {
+      if (disposeSidebar !== null) { disposeSidebar(); disposeSidebar = null }
+      if (sidebarMode() !== 'grouped') return
       // Shadow the official WorkspaceBrowser: lower priority wins the single
       // slot; the official entry stays live, so disposing this registration
-      // (mode switch / plugin disable) restores it verbatim.
-      slots.inject('sidebar.workspaces', () => slots.register(
-        {
-          name: 'sidebar.workspaces',
-          priority: -1,
-          locale: NS,
-          inject: () => ({ wsg }),
-        },
-        GroupedRegion,
-      ))
-    } else {
-      // Official view: park a switch-back affordance at the sidebar foot.
-      slots.inject('sidebar.footer.action', () => slots.register(
-        {
-          name: 'sidebar.footer.action',
-          id: 'workspace-groups-official-toggle',
-          order: 50,
-          locale: NS,
-          label: () => t('useGroupedView'),
-        },
-        OfficialModeSentinel,
-      ))
+      // restores it verbatim.
+      slots.inject('sidebar.workspaces', () => {
+        const dispose = slots.register(
+          {
+            name: 'sidebar.workspaces',
+            priority: -1,
+            locale: NS,
+            inject: () => ({ wsg }),
+          },
+          GroupedRegion,
+        )
+        disposeSidebar = () => { dispose(); disposeSidebar = null }
+        return dispose
+      })
     }
+    applySidebarMode()
+
+    // Live mode swap: the settings section dispatches; re-create the sidebar
+    // registration for the new mode. The listener lives with this fiber.
+    scope.effect(() => {
+      const handler = () => applySidebarMode()
+      window.addEventListener(MODE_EVENT, handler)
+      return () => { window.removeEventListener(MODE_EVENT, handler) }
+    }, 'workspace-group-manager: mode-change listener')
+
+    // Settings section: 分组视图 / 官方视图 cards (order after MCP 服务).
+    slots.inject('settings.section', () => slots.register(
+      {
+        name: 'settings.section',
+        id: 'workspace-view',
+        order: 65,
+        locale: NS,
+        label: () => t('settingsNav'),
+        inject: () => ({
+          // Read live: inject faces freeze at first render, so the CURRENT
+          // mode must be a getter, not a captured value.
+          mode: sidebarMode,
+          onChange: persistMode,
+        }),
+      },
+      ViewModeSection,
+    ))
   })
 }

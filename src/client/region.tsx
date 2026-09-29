@@ -1261,17 +1261,6 @@ function RegionBody(
           <button type="button" className={SHELL.iconButton} title={t('addWorkspace')} disabled={busy || adding} onClick={addWorkspace}>
             <Ico name="IconFolderCloseRegular" size={16} />
           </button>
-          <button
-            type="button"
-            className={SHELL.iconButton}
-            title={t('useOfficialView')}
-            onClick={() => {
-              localStorage.setItem(MODE_KEY, 'official')
-              location.reload()
-            }}
-          >
-            <Ico name="IconFlatListOutlineRegular" size={16} />
-          </button>
         </div>
       </div>
 
@@ -1311,40 +1300,5 @@ function RegionBody(
 
       <div className={SHELL.list}>{body}</div>
     </div>
-  )
-}
-
-/**
- * Sidebar-foot sentinel rendered while the OFFICIAL view is active: the only
- * way back into the grouped view (flag + reload), since the grouped region is
- * not registered in that mode.
- */
-export function OfficialModeSentinel({ t }: { t?: Translator }) {
-  return (
-    <button
-      type="button"
-      title={t?.('useGroupedView') ?? 'Workspace groups view'}
-      aria-label={t?.('useGroupedView') ?? 'Workspace groups view'}
-      onClick={() => {
-        localStorage.setItem(MODE_KEY, 'grouped')
-        location.reload()
-      }}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 24,
-        height: 24,
-        font: 'inherit',
-        color: 'inherit',
-        opacity: 0.6,
-        background: 'transparent',
-        border: 'none',
-        borderRadius: 5,
-        cursor: 'pointer',
-      }}
-    >
-      <PanelIcon size={15} />
-    </button>
   )
 }
