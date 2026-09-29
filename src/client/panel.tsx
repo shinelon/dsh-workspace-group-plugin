@@ -34,6 +34,8 @@ export interface SessionSummary {
   blank: boolean
   updatedAt: number
   origin?: string
+  /** Local ownership counts (official projection); mainView > 0 marks the open session. */
+  retainedBy?: { mainView?: number }
 }
 
 type Translator = (key: string, vars?: Record<string, string | number>) => string

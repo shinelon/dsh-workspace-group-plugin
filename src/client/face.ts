@@ -23,6 +23,11 @@ export interface WsgFace {
     /** Archive after the host stopped the session's running work. */
     archiveSessionStop(sessionId: string): Promise<unknown>
     unarchiveSession(sessionId: string): Promise<unknown>
+    /** Content search (host `session.search`), results joined by the caller. */
+    search(query: string, signal: AbortSignal): Promise<{
+      items: Array<{ sessionId: string; snippet: string }>
+      hasMore: boolean
+    }>
   }
   /** Official workspace mutations, bound to ctx.workspaces / ctx.uiWorkspace. */
   ws: {

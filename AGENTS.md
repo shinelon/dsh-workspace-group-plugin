@@ -35,7 +35,8 @@
 - **会话行过滤**：隐藏 archived（registry 全局集合）、blank（临时空白新会话）、`origin === 'subagent'`；按 `updatedAt` 降序。运行状态点直接读 `summary.running`。
 - **存储铁律**：`store.js` 载入时容忍损坏——改名 `*.bak-<ts>` 后空启动并在 list 响应带 notice；所有变更走进程内 promise 队列串行 read-modify-write，temp+rename 原子替换；校验：title ≤100 非空、path ≤1024 非空去重、分组 ≤100、每组成员 ≤200。
 - **HTTP 面**：`/workspace-group-manager` 前缀路由，回环栅栏（loopback.js，自包含移植）先行，JSON envelope `{ok,value}|{ok:false,error:{code,message}}`，body 上限 64KB；客户端 fetch 用**文档相对路径**（无前导斜杠）。
-- **样式纪律**：侧栏视图直接使用**官方 CSS 类名**（`ROWS`/`SHELL` 常量 = ui-workspace CSS-module 哈希，按 0.1.7-rc.2 硬编码——官方浏览器条目保持注册，其 `<style>` 标签持续在页面中，故这些类始终生效）+ **官方 primitives 组件**（图标/`Menu`/`Tooltip`，经 `window.__wsgRequire` 解析——build.mjs footer 从 loader 的 `require` 注入）。图标名必须是带变体后缀的导出（如 `IconPlusOutlineRegular`，裸名是 artwork 令牌、不是组件）。菜单用官方 `Menu`（portal），无自绘 portal。
+- **样式纪律**：侧栏视图直接使用**官方 CSS 类名**（`ROWS`/`SHELL` 常量 = ui-workspace CSS-module 哈希，已核对 0.1.7-rc.2 与 0.2.0-rc.1 完全一致——官方浏览器条目保持注册，其 `<style>` 标签持续在页面中，故这些类始终生效）+ **官方 primitives 组件**（图标/`Menu`/`Tooltip`，经 `window.__wsgRequire` 解析——build.mjs footer 从 loader 的 `require` 注入）。图标名必须是带变体后缀的导出（如 `IconPlusOutlineRegular`，裸名是 artwork 令牌、不是组件）。菜单用官方 `Menu`（portal），无自绘 portal。
+- **搜索**：区头 🔍 展开内联输入，250ms 防抖调 `sessions.search(query, signal)`（RemoteResult 需自行解包 `{ok,value}`），结果按 `byId` 联结会话摘要、按归档筛选过滤，点击打开（已归档提示）。当前会话高亮：`selected` 类 + `folderActive`，判定 = `retainedBy.mainView > 0` 且 `usePanelInfo.activePanelId == null`。
 - **拖拽纪律**：**目录行 = 指针拖拽**（`onDirRowMouseDown` → 5px 阈值 → `elementFromPoint` 命中 `[data-wsg-drop]` 行/头 → mouseup 提交；拖拽值从 `dataTransfer.getData` 读取，**不依赖 React 拖拽状态**，状态仅做半透明/标记的视觉反馈）；**分组头 = 原生 HTML5 drag**（实测可靠）。落点为目录行时经 `data-wsg-owner` 定源分组，落点为分组头时按上/下半插入。目录行的放置线是注入 CSS（官方只给 sessionRow 定义了 dropBefore/dropAfter）。
 - **pnpm 配置**：`autoInstallPeers: false` 写在 pnpm-workspace.yaml（pnpm 11 不读项目 .npmrc 的该键）；peer `@deepseek-ai/dsh` 仅作兼容性声明，宿主运行时由 DSH 自身提供。
 
@@ -59,6 +60,6 @@ pnpm run build      # 产出 lib/client.js
 
 ## 已知边界
 
-- 分组模式下官方浏览器被遮蔽（设置 → 工作区视图 一键切回）；官方类名哈希与行结构按 0.1.7-rc.2 硬编码，升级需复核；会话内容搜索与悬停卡片未实现。
+- 分组模式下官方浏览器被遮蔽（设置 → 工作区视图 一键切回）；官方类名哈希与行结构已按 0.2.0-rc.1 校准（与 0.1.7-rc.2 一致），升级需复核；悬停卡片未实现。
 - 数据为本机全局一份（不分 profile）；多标签并发写 last-write-wins。
 - 路由仅回环可用（与 mcp 插件同款栅栏），远程浏览器部署不可管理分组。

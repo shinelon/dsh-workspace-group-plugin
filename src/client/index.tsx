@@ -94,7 +94,14 @@ export function apply(ctx: ClientContext): void {
       unarchiveSession(sessionId: string): Promise<unknown>
     }
     sessions: {
-      rename(sessionId: string, title: string): Promise<unknown>
+      /** 0.2.0-rc.1: session rename runs through a retained reference. */
+      using<T>(target: unknown, options: { source: string }, operation: (reference: {
+        binding: { session: { rename(title: string): Promise<unknown> } }
+      }) => unknown): Promise<unknown>
+      search(query: string, signal: AbortSignal): Promise<
+        { ok: true; value: { items: Array<{ sessionId: string; snippet: string }>; hasMore: boolean } }
+        | { ok: false; error: { message: string } }
+      >
     }
   }) => {
     const slots = scope.slots
@@ -103,7 +110,13 @@ export function apply(ctx: ClientContext): void {
       nav: {
         openSession: (sessionId: string) => { scope.uiWorkspace.openSession(sessionId) },
         startSession: (workspaceId?: string) => { scope.uiWorkspace.startSession(workspaceId) },
-        renameSession: (sessionId: string, title: string) => scope.sessions.rename(sessionId, title),
+        renameSession: (sessionId: string, title: string) => scope.sessions
+          .using(sessionId, { source: 'workspaceOperation' }, (reference) => reference.binding.session.rename(title)),
+        search: async (query: string, signal: AbortSignal) => {
+          const result = await scope.sessions.search(query, signal)
+          if (!result.ok) throw new Error(result.error.message)
+          return result.value
+        },
         forkSession: (sessionId: string) => scope.uiWorkspace.forkSession(sessionId),
         pinSession: (sessionId: string) => scope.uiWorkspace.pinSession(sessionId),
         unpinSession: (sessionId: string) => scope.uiWorkspace.unpinSession(sessionId),
