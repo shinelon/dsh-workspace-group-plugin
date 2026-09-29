@@ -60,6 +60,11 @@ export interface WsgLocaleKeyMap {
   searching: 'searching'
   searchNoResults: 'searchNoResults'
   archivedNotOpenable: 'archivedNotOpenable'
+  relNow: 'relNow'
+  relMinutes: 'relMinutes'
+  relHours: 'relHours'
+  relDays: 'relDays'
+  relMonths: 'relMonths'
   settingsNav: 'settingsNav'
   settingsTitle: 'settingsTitle'
   settingsDesc: 'settingsDesc'
@@ -123,6 +128,11 @@ export const zh: Record<keyof WsgLocaleKeyMap, string> = {
   searching: '搜索中…',
   searchNoResults: '未找到匹配会话',
   archivedNotOpenable: '已归档会话无法打开，取消归档后可打开',
+  relNow: '刚刚',
+  relMinutes: '{n}分钟',
+  relHours: '{n}小时',
+  relDays: '{n}天',
+  relMonths: '{n}个月',
   settingsNav: '工作区视图',
   settingsTitle: '工作区视图',
   settingsDesc: '选择侧边栏「工作区」区域使用自定义分组视图，还是保持官方工作区列表。两种视图共用同一份工作区与会话数据。',
@@ -186,6 +196,11 @@ export const en: Record<keyof WsgLocaleKeyMap, string> = {
   searching: 'Searching…',
   searchNoResults: 'No matching sessions',
   archivedNotOpenable: "Archived sessions can't be opened — unarchive first",
+  relNow: 'now',
+  relMinutes: '{n}min',
+  relHours: '{n}h',
+  relDays: '{n}d',
+  relMonths: '{n}mo',
   settingsNav: 'Workspace view',
   settingsTitle: 'Workspace view',
   settingsDesc: 'Choose whether the sidebar workspace area uses the custom grouped view or the official workspace list. Both views share the same workspaces and sessions.',
