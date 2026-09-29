@@ -133,6 +133,28 @@ test('non-POST gets 405; non-loopback gets 403 before any body handling', async 
   assert.equal(remote.body.error.code, 'forbidden')
 })
 
+test('reorder routes persist member and group order', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'wsg-routes-'))
+  const { handler } = setup({ createStore: () => createGroupsStore({ filePath: join(dir, 'g.json') }) })
+
+  const g1 = (await call(handler, fakeReq({ title: 'one' }, { url: '/workspace-group-manager/create' }))).body.value.group
+  const g2 = (await call(handler, fakeReq({ title: 'two' }, { url: '/workspace-group-manager/create' }))).body.value.group
+  await call(handler, fakeReq({ id: g1.id, paths: ['D:\\a', 'D:\\b'] }, { url: '/workspace-group-manager/add-members' }))
+
+  const reordered = await call(handler, fakeReq(
+    { id: g1.id, paths: ['D:\\b', 'D:\\a'] },
+    { url: '/workspace-group-manager/reorder-members' },
+  ))
+  assert.deepEqual(reordered.body.value.group.paths, ['D:\\b', 'D:\\a'])
+
+  await call(handler, fakeReq({ ids: [g2.id, g1.id] }, { url: '/workspace-group-manager/reorder-groups' }))
+  const listed = await call(handler, fakeReq({}, { url: '/workspace-group-manager/list' }))
+  assert.deepEqual(listed.body.value.groups.map((/** @type {any} */ g) => g.id), [g2.id, g1.id])
+
+  const bad = await call(handler, fakeReq({ ids: [g1.id] }, { url: '/workspace-group-manager/reorder-groups' }))
+  assert.equal(bad.body.error.code, 'invalid')
+})
+
 test('malformed body is treated as null (invalid instead of crash)', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'wsg-routes-'))
   const { handler } = setup({ createStore: () => createGroupsStore({ filePath: join(dir, 'g.json') }) })

@@ -6,15 +6,21 @@
 // `require` supplies the app's own copies (a bundled second React would break
 // hooks). The host half is plain ESM JS and needs no build.
 //
+// write:false + explicit fs.writeFile: on some setups the esbuild Go process
+// is denied direct writes to this directory while the Node runtime is not.
+//
 // Run: node build.mjs
 import { build } from 'esbuild'
+import { writeFile, mkdir } from 'node:fs/promises'
+import { dirname } from 'node:path'
 
 const ID = '@local/workspace-group-manager'
 const GLOBAL = '__workspace_group_manager_exports__'
 
-await build({
+const result = await build({
   entryPoints: ['src/client/index.tsx'],
   outfile: 'lib/client.js',
+  write: false,
   bundle: true,
   format: 'iife',
   globalName: GLOBAL,
@@ -46,3 +52,9 @@ await build({
   },
   logLevel: 'info',
 })
+
+await mkdir(dirname(result.outputFiles[0].path), { recursive: true })
+for (const file of result.outputFiles) {
+  await writeFile(file.path, file.contents)
+}
+console.log(`lib/client.js ${(result.outputFiles[0].contents.length / 1024).toFixed(1)}kb`)

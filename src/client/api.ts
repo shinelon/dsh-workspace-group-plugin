@@ -81,4 +81,12 @@ export const groupsApi = {
   removeMember(id: string, path: string): Promise<ApiResult<{ group: WorkspaceGroup }>> {
     return post('remove-member', { id, path })
   },
+  /** Replace one group's member order (permutation of current members). */
+  reorderMembers(id: string, paths: string[]): Promise<ApiResult<{ group: WorkspaceGroup }>> {
+    return post('reorder-members', { id, paths })
+  },
+  /** Replace the group display order (permutation of current group ids). */
+  reorderGroups(ids: string[]): Promise<ApiResult<{ ordered: boolean }>> {
+    return post('reorder-groups', { ids })
+  },
 }

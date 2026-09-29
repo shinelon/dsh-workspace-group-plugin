@@ -104,3 +104,25 @@ test('concurrent mutations serialize and all land', async () => {
   await Promise.all(Array.from({ length: 20 }, (_, i) => store.addMembers(g.id, [`D:\\p${i}`])))
   assert.equal(store.snapshot().groups[0]?.paths.length, 20)
 })
+
+test('reorderMembers applies a permutation and rejects non-permutations', async () => {
+  const { store } = await tempStore()
+  const g = await store.create('g')
+  await store.addMembers(g.id, ['D:\\a', 'D:\\b', 'D:\\c'])
+  const reordered = await store.reorderMembers(g.id, ['D:\\c', 'D:\\a', 'D:\\b'])
+  assert.deepEqual(reordered.paths, ['D:\\c', 'D:\\a', 'D:\\b'])
+  await assert.rejects(store.reorderMembers(g.id, ['D:\\c', 'D:\\a']), error => error.code === 'conflict')
+  await assert.rejects(store.reorderMembers(g.id, ['D:\\c', 'D:\\a', 'D:\\x']), error => error.code === 'conflict')
+  await assert.rejects(store.reorderMembers('nope', ['D:\\a']), error => error.code === 'not-found')
+})
+
+test('reorderGroups permutes group order and rejects foreign or short id lists', async () => {
+  const { store } = await tempStore()
+  const a = await store.create('a')
+  const b = await store.create('b')
+  const c = await store.create('c')
+  await store.reorderGroups([c.id, a.id, b.id])
+  assert.deepEqual(store.snapshot().groups.map(g => g.id), [c.id, a.id, b.id])
+  await assert.rejects(store.reorderGroups([a.id, b.id]), error => error.code === 'invalid')
+  await assert.rejects(store.reorderGroups([a.id, b.id, 'nope']), error => error.code === 'invalid')
+})

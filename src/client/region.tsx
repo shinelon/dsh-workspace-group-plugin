@@ -19,7 +19,7 @@
  */
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties, DragEvent as ReactDragEvent, ReactNode } from 'react'
 import type { WorkspaceGroup } from './api'
 import type { WsgFace } from './face'
 import { basename, formatRelative, PanelIcon, S } from './panel'
@@ -52,6 +52,11 @@ type GroupBy = 'groups' | 'workspace' | 'workspace-tree' | 'flat'
 type OrderBy = 'updated' | 'manual'
 type ArchivedFilter = 'hide' | 'show' | 'only'
 interface ViewOpts { groupBy: GroupBy; orderBy: OrderBy; archivedFilter: ArchivedFilter }
+
+/** Active drag inside the groups mode: a directory or a whole group. */
+type RegionDrag =
+  | { kind: 'dir'; path: string; fromGroupId: string | null }
+  | { kind: 'group'; groupId: string }
 
 const DEFAULT_VIEW: ViewOpts = { groupBy: 'groups', orderBy: 'updated', archivedFilter: 'hide' }
 
@@ -92,6 +97,8 @@ const ROWS = {
   pinIndicator: 'YDXeBa_pinIndicator',
   archived: 'YDXeBa_archived',
   renameInput: 'YDXeBa_renameInput',
+  dropBefore: 'YDXeBa_dropBefore',
+  dropAfter: 'YDXeBa_dropAfter',
 } as const
 
 /** Official browser-shell classes (bhn1Oq_* from the same stylesheet). */
@@ -106,6 +113,8 @@ const SHELL = {
   emptyState: 'bhn1Oq_emptyState',
   emptyAction: 'bhn1Oq_emptyAction',
   viewOptionsMenu: 'bhn1Oq_viewOptionsMenu',
+  workspaceDropBefore: 'bhn1Oq_workspaceDropBefore',
+  workspaceDropAfter: 'bhn1Oq_workspaceDropAfter',
 } as const
 
 const R = {
@@ -298,6 +307,8 @@ function RegionBody(
   const [creatingGroup, setCreatingGroup] = useState(false)
   const [createGroupDraft, setCreateGroupDraft] = useState('')
   const [view, setViewState] = useState<ViewOpts>(loadView)
+  const [drag, setDrag] = useState<RegionDrag | null>(null)
+  const [dropMark, setDropMark] = useState<{ key: string; half: 'before' | 'after' } | null>(null)
 
   const setView = useCallback((patch: Partial<ViewOpts>) => {
     setViewState(previous => {
@@ -376,6 +387,126 @@ function RegionBody(
       await refreshGroups()
     })
   }, [createGroupDraft, refreshGroups, run, wsg.api])
+
+  // --- drag & drop (groups mode): dirs change group/order, groups reorder --
+
+  const clearDrag = useCallback(() => {
+    setDrag(null)
+    setDropMark(null)
+  }, [])
+
+  const dirDragStart = (path: string, fromGroupId: string | null) => (event: ReactDragEvent<HTMLDivElement>) => {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', path)
+    setDrag({ kind: 'dir', path, fromGroupId })
+    setWsMenuPath(null)
+    setSessionMenuId(null)
+    setGroupMenuId(null)
+  }
+
+  const groupDragStart = (groupId: string) => (event: ReactDragEvent<HTMLDivElement>) => {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', groupId)
+    setDrag({ kind: 'group', groupId })
+    setWsMenuPath(null)
+    setSessionMenuId(null)
+    setGroupMenuId(null)
+  }
+
+  const endDrag = useCallback(() => clearDrag(), [clearDrag])
+
+  const markerHalf = (event: ReactDragEvent<HTMLDivElement>): 'before' | 'after' => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    return event.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
+  }
+
+  const dirRowDragOver = (rowPath: string) => (event: ReactDragEvent<HTMLDivElement>) => {
+    if (drag === null || drag.kind !== 'dir' || drag.path === rowPath) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    setDropMark({ key: `dir:${rowPath}`, half: markerHalf(event) })
+  }
+
+  const dirRowDrop = (rowPath: string, ownerGroupId: string) => (event: ReactDragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const current = drag
+    const mark = dropMark
+    clearDrag()
+    if (current === null || current.kind !== 'dir' || current.path === rowPath) return
+    const targetGroup = (groups ?? []).find(group => group.id === ownerGroupId)
+    if (targetGroup === undefined) return
+    const without = targetGroup.paths.filter(p => p !== current.path)
+    const index = Math.max(0, without.indexOf(rowPath)) + (mark?.half === 'after' ? 1 : 0)
+    const order = [...without.slice(0, index), current.path, ...without.slice(index)]
+    if (current.fromGroupId === ownerGroupId) {
+      void run(() => wsg.api.reorderMembers(ownerGroupId, order))
+    } else {
+      void run(async () => {
+        if (current.fromGroupId !== null) await wsg.api.removeMember(current.fromGroupId, current.path)
+        await wsg.api.addMembers(ownerGroupId, [current.path])
+        await wsg.api.reorderMembers(ownerGroupId, order)
+        await refreshGroups()
+      })
+    }
+  }
+
+  const groupHeaderDragOver = (groupId: string) => (event: ReactDragEvent<HTMLDivElement>) => {
+    if (drag === null) return
+    if (drag.kind === 'group' && drag.groupId === groupId) return
+    if (drag.kind === 'dir' && drag.fromGroupId === groupId) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    setDropMark({ key: `group:${groupId}`, half: markerHalf(event) })
+  }
+
+  const groupHeaderDrop = (groupId: string) => (event: ReactDragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const current = drag
+    const mark = dropMark
+    clearDrag()
+    if (current === null) return
+    if (current.kind === 'dir') {
+      if (current.fromGroupId === groupId) return
+      const targetGroup = (groups ?? []).find(group => group.id === groupId)
+      if (targetGroup === undefined) return
+      setExpanded(previous => new Set(previous).add(`g:${groupId}`))
+      void run(async () => {
+        if (current.fromGroupId !== null) await wsg.api.removeMember(current.fromGroupId, current.path)
+        await wsg.api.addMembers(groupId, [current.path])
+        if (mark?.half === 'before' && targetGroup.paths.length > 0) {
+          await wsg.api.reorderMembers(groupId, [current.path, ...targetGroup.paths])
+        }
+        await refreshGroups()
+      })
+      return
+    }
+    const ids = (groups ?? []).map(group => group.id).filter(id => id !== current.groupId)
+    const index = Math.max(0, ids.indexOf(groupId)) + (mark?.half === 'after' ? 1 : 0)
+    const next = [...ids.slice(0, index), current.groupId, ...ids.slice(index)]
+    void run(async () => {
+      await wsg.api.reorderGroups(next)
+      await refreshGroups()
+    })
+  }
+
+  const ungroupedHeaderDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (drag === null || drag.kind !== 'dir' || drag.fromGroupId === null) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    setDropMark({ key: 'group:ungrouped', half: 'after' })
+  }
+
+  const ungroupedHeaderDrop = (event: ReactDragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const current = drag
+    clearDrag()
+    if (current === null || current.kind !== 'dir' || current.fromGroupId === null) return
+    const fromGroupId = current.fromGroupId
+    void run(async () => {
+      await wsg.api.removeMember(fromGroupId, current.path)
+      await refreshGroups()
+    })
+  }
 
   /** One workspace's sessions under the current ordering + archived filter. */
   const sessionsOf = useCallback((workspace: WorkspaceView): SessionSummary[] => {
@@ -615,15 +746,29 @@ function RegionBody(
     const renaming = renamingPath === path
     const confirming = confirmingPath === path
     const stripKeep = menuOpen || confirming || renaming
+    const draggable = groupItems
+    const draggingThis = draggable && drag?.kind === 'dir' && drag.path === path
+    const markerBefore = dropMark?.key === `dir:${path}` && dropMark.half === 'before'
+    const markerAfter = dropMark?.key === `dir:${path}` && dropMark.half === 'after'
     const stop = (event: { stopPropagation(): void }) => event.stopPropagation()
     return (
       <div key={`${fromGroupId ?? 'root'}:${path}`}>
         <div
-          className={clsx(ROWS.projectRow, stripKeep && ROWS.menuOpen)}
-          style={indent(depth)}
+          className={clsx(
+            ROWS.projectRow,
+            stripKeep && ROWS.menuOpen,
+            markerBefore && ROWS.dropBefore,
+            markerAfter && ROWS.dropAfter,
+          )}
+          style={{ ...indent(depth), ...(draggingThis ? { opacity: 0.45 } : null) }}
           role="treeitem"
           aria-expanded={rowOpen}
           onClick={() => toggle(expandKey)}
+          draggable={draggable}
+          onDragStart={draggable ? dirDragStart(path, fromGroupId) : undefined}
+          onDragEnd={draggable ? endDrag : undefined}
+          onDragOver={draggable ? dirRowDragOver(path) : undefined}
+          onDrop={draggable && fromGroupId !== null ? dirRowDrop(path, fromGroupId) : undefined}
         >
           <span className={clsx(ROWS.slot, ROWS.folder)}>
             {workspace === undefined
@@ -751,13 +896,27 @@ function RegionBody(
     const open = expanded.has(expandKey)
     const renaming = renamingGroupId === groupId
     const confirming = confirmingGroupId === groupId
+    const isRealGroup = groupId !== 'ungrouped'
+    const draggingThisGroup = isRealGroup && drag?.kind === 'group' && drag.groupId === groupId
+    const markerBefore = dropMark?.key === `group:${groupId}` && dropMark.half === 'before'
+    const markerAfter = dropMark?.key === `group:${groupId}` && dropMark.half === 'after'
     return (
       <div
-        className={clsx(ROWS.projectRow, (groupMenuId === groupId || confirming) && ROWS.menuOpen)}
-        style={indent(0)}
+        className={clsx(
+          ROWS.projectRow,
+          (groupMenuId === groupId || confirming) && ROWS.menuOpen,
+          markerBefore && SHELL.workspaceDropBefore,
+          markerAfter && SHELL.workspaceDropAfter,
+        )}
+        style={{ ...indent(0), ...(draggingThisGroup ? { opacity: 0.45 } : null) }}
         role="treeitem"
         aria-expanded={open}
         onClick={() => { if (!renaming) toggle(expandKey) }}
+        draggable={isRealGroup}
+        onDragStart={isRealGroup ? groupDragStart(groupId) : undefined}
+        onDragEnd={isRealGroup ? endDrag : undefined}
+        onDragOver={isRealGroup ? groupHeaderDragOver(groupId) : ungroupedHeaderDragOver}
+        onDrop={isRealGroup ? groupHeaderDrop(groupId) : ungroupedHeaderDrop}
       >
         <span className={clsx(ROWS.slot, ROWS.folder)}>
           {open ? <Ico name="IconFolderOpenRegular" /> : <Ico name="IconFolderCloseRegular" />}

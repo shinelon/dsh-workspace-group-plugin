@@ -99,6 +99,16 @@ async function dispatch(store, route, body) {
     }
     case 'remove-member':
       return { group: await store.removeMember(requireString(body, 'id'), requireString(body, 'path')) }
+    case 'reorder-members': {
+      const paths = body?.paths
+      if (!Array.isArray(paths) || paths.length === 0) throw httpError('invalid', '缺少 paths')
+      return { group: await store.reorderMembers(requireString(body, 'id'), /** @type {string[]} */ (paths)) }
+    }
+    case 'reorder-groups': {
+      const ids = body?.ids
+      if (!Array.isArray(ids) || ids.length === 0) throw httpError('invalid', '缺少 ids')
+      return { ordered: await store.reorderGroups(/** @type {string[]} */ (ids)) }
+    }
     default:
       throw httpError('not-found', `未知路由 "${route}"`)
   }

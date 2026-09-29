@@ -258,5 +258,46 @@ export async function createGroupsStore(options = {}) {
       })
       return mustFind(id)
     },
+    /**
+     * Replace one group's member order (a permutation of the current members).
+     * @param {string} id
+     * @param {string[]} rawPaths
+     * @returns {Promise<Group>}
+     */
+    async reorderMembers(id, rawPaths) {
+      const paths = normalizePaths(rawPaths)
+      if (paths === null || paths.length === 0) throw Object.assign(new Error('invalid paths'), { code: 'invalid' })
+      await mutate((current) => {
+        const group = current.groups.find(g => g.id === id)
+        if (group === undefined) throw Object.assign(new Error('group not found'), { code: 'not-found' })
+        const sameSet = group.paths.length === paths.length && paths.every(p => group.paths.includes(p))
+        if (!sameSet) throw Object.assign(new Error('members changed since reorder was computed'), { code: 'conflict' })
+        return {
+          ...current,
+          groups: current.groups.map(g => g.id === id ? { ...g, paths, updatedAt: new Date().toISOString() } : g),
+        }
+      })
+      return mustFind(id)
+    },
+    /**
+     * Replace the group display order (a permutation of the current group ids).
+     * @param {string[]} rawIds
+     * @returns {Promise<true>}
+     */
+    async reorderGroups(rawIds) {
+      if (!Array.isArray(rawIds)) throw Object.assign(new Error('invalid ids'), { code: 'invalid' })
+      await mutate((current) => {
+        if (rawIds.length !== current.groups.length) throw Object.assign(new Error('invalid ids'), { code: 'invalid' })
+        const byId = new Map(current.groups.map(g => [g.id, g]))
+        const groups = []
+        for (const id of rawIds) {
+          const group = byId.get(id)
+          if (group === undefined) throw Object.assign(new Error('invalid ids'), { code: 'invalid' })
+          groups.push(group)
+        }
+        return { ...current, groups }
+      })
+      return true
+    },
   }
 }
