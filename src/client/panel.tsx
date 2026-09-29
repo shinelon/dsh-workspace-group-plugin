@@ -316,13 +316,13 @@ export function formatRelative(
   const delta = Math.max(0, Date.now() - updatedAtMs)
   const minutes = Math.floor(delta / 60_000)
   if (minutes < 1) return t ? t('relNow') : 'now'
-  if (minutes < 60) return t ? t('relMinutes', { count: minutes }) : `${minutes}m`
+  if (minutes < 60) return t ? t('relMinutes', { n: minutes }) : `${minutes}m`
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return t ? t('relHours', { count: hours }) : `${hours}h`
+  if (hours < 24) return t ? t('relHours', { n: hours }) : `${hours}h`
   const days = Math.floor(hours / 24)
-  if (days < 30) return t ? t('relDays', { count: days }) : `${days}d`
+  if (days < 30) return t ? t('relDays', { n: days }) : `${days}d`
   const months = Math.floor(days / 30)
-  return t ? t('relMonths', { count: months }) : `${months}mo`
+  return t ? t('relMonths', { n: months }) : `${months}mo`
 }
 
 export function basename(path: string): string {
