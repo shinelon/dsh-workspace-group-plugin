@@ -420,8 +420,29 @@ function RegionBody(
     return event.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
   }
 
+  /** Read the dragged value back at drop time (set by every dragstart). */
+  const dragValueOf = (event: ReactDragEvent<HTMLDivElement>): string | null => {
+    try {
+      const value = event.dataTransfer.getData('text/plain')
+      return value !== '' ? value : null
+    } catch {
+      return null
+    }
+  }
+
+  /** Whether the dropped value names one of our groups (vs a directory path). */
+  const isGroupDragValue = (value: string): boolean =>
+    (groups ?? []).some(group => group.id === value)
+
+  /**
+   * Drop targets accept based on `dataTransfer.types` (always present during
+   * our drags, readable in dragover) and resolve the dragged VALUE at drop —
+   * never gating the drop chain on the React drag state, which is visual-only
+   * (dim + marker bookkeeping).
+   */
   const dirRowDragOver = (rowPath: string) => (event: ReactDragEvent<HTMLDivElement>) => {
-    if (drag === null || drag.kind !== 'dir' || drag.path === rowPath) return
+    if (!event.dataTransfer.types.includes('text/plain')) return
+    if (drag?.kind === 'dir' && drag.path === rowPath) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
     setDropMark({ key: `dir:${rowPath}`, half: markerHalf(event) })
@@ -429,24 +450,27 @@ function RegionBody(
 
   const dirRowDrop = (rowPath: string, ownerGroupId: string) => (event: ReactDragEvent<HTMLDivElement>) => {
     event.preventDefault()
-    const current = drag
-    const mark = dropMark
+    const value = dragValueOf(event)
+    const half = markerHalf(event)
     clearDrag()
-    if (current === null || current.kind !== 'dir' || current.path === rowPath) return
+    if (value === null || value === rowPath || isGroupDragValue(value)) return
     const targetGroup = (groups ?? []).find(group => group.id === ownerGroupId)
     if (targetGroup === undefined) return
-    const without = targetGroup.paths.filter(p => p !== current.path)
-    const index = Math.max(0, without.indexOf(rowPath)) + (mark?.half === 'after' ? 1 : 0)
-    const order = [...without.slice(0, index), current.path, ...without.slice(index)]
-    if (current.fromGroupId === ownerGroupId) {
+    const sourceGroupId = targetGroup.paths.includes(value)
+      ? ownerGroupId
+      : ((groups ?? []).find(group => group.paths.includes(value))?.id ?? null)
+    const without = targetGroup.paths.filter(p => p !== value)
+    const index = Math.max(0, without.indexOf(rowPath)) + (half === 'after' ? 1 : 0)
+    const order = [...without.slice(0, index), value, ...without.slice(index)]
+    if (sourceGroupId === ownerGroupId) {
       void run(async () => {
         await wsg.api.reorderMembers(ownerGroupId, order)
         await refreshGroups()
       })
     } else {
       void run(async () => {
-        if (current.fromGroupId !== null) await wsg.api.removeMember(current.fromGroupId, current.path)
-        await wsg.api.addMembers(ownerGroupId, [current.path])
+        if (sourceGroupId !== null) await wsg.api.removeMember(sourceGroupId, value)
+        await wsg.api.addMembers(ownerGroupId, [value])
         await wsg.api.reorderMembers(ownerGroupId, order)
         await refreshGroups()
       })
@@ -454,9 +478,9 @@ function RegionBody(
   }
 
   const groupHeaderDragOver = (groupId: string) => (event: ReactDragEvent<HTMLDivElement>) => {
-    if (drag === null) return
-    if (drag.kind === 'group' && drag.groupId === groupId) return
-    if (drag.kind === 'dir' && drag.fromGroupId === groupId) return
+    if (!event.dataTransfer.types.includes('text/plain')) return
+    if (drag?.kind === 'group' && drag.groupId === groupId) return
+    if (drag?.kind === 'dir' && drag.fromGroupId === groupId) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
     setDropMark({ key: `group:${groupId}`, half: markerHalf(event) })
@@ -464,36 +488,41 @@ function RegionBody(
 
   const groupHeaderDrop = (groupId: string) => (event: ReactDragEvent<HTMLDivElement>) => {
     event.preventDefault()
-    const current = drag
-    const mark = dropMark
+    const value = dragValueOf(event)
+    const half = markerHalf(event)
     clearDrag()
-    if (current === null) return
-    if (current.kind === 'dir') {
-      if (current.fromGroupId === groupId) return
-      const targetGroup = (groups ?? []).find(group => group.id === groupId)
-      if (targetGroup === undefined) return
-      setExpanded(previous => new Set(previous).add(`g:${groupId}`))
+    if (value === null) return
+    if (isGroupDragValue(value)) {
+      if (value === groupId) return
+      const ids = (groups ?? []).map(group => group.id).filter(id => id !== value)
+      const index = Math.max(0, ids.indexOf(groupId)) + (half === 'after' ? 1 : 0)
+      const next = [...ids.slice(0, index), value, ...ids.slice(index)]
       void run(async () => {
-        if (current.fromGroupId !== null) await wsg.api.removeMember(current.fromGroupId, current.path)
-        await wsg.api.addMembers(groupId, [current.path])
-        if (mark?.half === 'before' && targetGroup.paths.length > 0) {
-          await wsg.api.reorderMembers(groupId, [current.path, ...targetGroup.paths])
-        }
+        await wsg.api.reorderGroups(next)
         await refreshGroups()
       })
       return
     }
-    const ids = (groups ?? []).map(group => group.id).filter(id => id !== current.groupId)
-    const index = Math.max(0, ids.indexOf(groupId)) + (mark?.half === 'after' ? 1 : 0)
-    const next = [...ids.slice(0, index), current.groupId, ...ids.slice(index)]
+    // Directory dropped on a group header: move it into that group.
+    const targetGroup = (groups ?? []).find(group => group.id === groupId)
+    if (targetGroup === undefined) return
+    setExpanded(previous => new Set(previous).add(`g:${groupId}`))
     void run(async () => {
-      await wsg.api.reorderGroups(next)
+      for (const group of groups ?? []) {
+        if (group.id !== groupId && group.paths.includes(value)) await wsg.api.removeMember(group.id, value)
+      }
+      const afterAdd = await wsg.api.addMembers(groupId, [value])
+      if (half === 'before' && afterAdd.ok && targetGroup.paths.length > 0) {
+        await wsg.api.reorderMembers(groupId, [value, ...targetGroup.paths])
+      }
       await refreshGroups()
     })
   }
 
   const ungroupedHeaderDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
-    if (drag === null || drag.kind !== 'dir' || drag.fromGroupId === null) return
+    if (!event.dataTransfer.types.includes('text/plain')) return
+    if (drag?.kind === 'group') return
+    if (drag?.kind === 'dir' && drag.fromGroupId === null) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
     setDropMark({ key: 'group:ungrouped', half: 'after' })
@@ -501,12 +530,13 @@ function RegionBody(
 
   const ungroupedHeaderDrop = (event: ReactDragEvent<HTMLDivElement>) => {
     event.preventDefault()
-    const current = drag
+    const value = dragValueOf(event)
     clearDrag()
-    if (current === null || current.kind !== 'dir' || current.fromGroupId === null) return
-    const fromGroupId = current.fromGroupId
+    if (value === null || isGroupDragValue(value)) return
     void run(async () => {
-      await wsg.api.removeMember(fromGroupId, current.path)
+      for (const group of groups ?? []) {
+        if (group.paths.includes(value)) await wsg.api.removeMember(group.id, value)
+      }
       await refreshGroups()
     })
   }
