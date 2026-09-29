@@ -1341,22 +1341,6 @@ function RegionBody(
       <div className={SHELL.sectionHeader}>
         <span className={SHELL.sectionLabel}>{t('workspaceTitle')}</span>
         <span style={R.badge}>{t('panel')}</span>
-        {creatingGroup && (
-          <input
-            autoFocus
-            className={ROWS.renameInput}
-            style={{ width: 160 }}
-            value={createGroupDraft}
-            placeholder={t('createGroup')}
-            disabled={busy}
-            onClick={event => event.stopPropagation()}
-            onKeyDown={event => {
-              if (event.key === 'Enter') commitCreateGroup()
-              if (event.key === 'Escape') { setCreatingGroup(false); setCreateGroupDraft('') }
-            }}
-            onBlur={() => commitCreateGroup()}
-          />
-        )}
         <div style={S.grow} />
         <button
           type="button"
@@ -1382,6 +1366,27 @@ function RegionBody(
           <Ico name="IconFolderCloseRegular" size={16} />
         </button>
       </div>
+
+      {creatingGroup && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 12px 10px' }}>
+          <input
+            autoFocus
+            style={{ ...S.input, flex: 1 }}
+            value={createGroupDraft}
+            placeholder={t('createGroup')}
+            disabled={busy}
+            onChange={event => setCreateGroupDraft(event.target.value)}
+            onKeyDown={event => {
+              if (event.key === 'Enter') commitCreateGroup()
+              if (event.key === 'Escape') { setCreatingGroup(false); setCreateGroupDraft('') }
+            }}
+          />
+          <button type="button" style={R.cancelBtn} disabled={busy}
+            onClick={() => { setCreatingGroup(false); setCreateGroupDraft('') }}>
+            {t('cancel')}
+          </button>
+        </div>
+      )}
 
       {searchOpen && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 12px 10px' }}>
