@@ -32,8 +32,6 @@ export interface WsgLocaleKeyMap {
   incompatible: 'incompatible'
   membersCount: 'membersCount'
   dropToUngrouped: 'dropToUngrouped'
-  useOfficialView: 'useOfficialView'
-  useGroupedView: 'useGroupedView'
   more: 'more'
   pin: 'pin'
   unpin: 'unpin'
@@ -93,8 +91,6 @@ export const zh: Record<keyof WsgLocaleKeyMap, string> = {
   incompatible: '此面板需要较新版本的 DSH（缺少全局工作区数据）。',
   membersCount: '{count} 个目录',
   dropToUngrouped: '拖到此处移出分组',
-  useOfficialView: '使用官方视图',
-  useGroupedView: '工作区分组视图',
   more: '更多',
   pin: '置顶',
   unpin: '取消置顶',
@@ -154,8 +150,6 @@ export const en: Record<keyof WsgLocaleKeyMap, string> = {
   incompatible: 'This panel needs a newer DSH (global workspace data missing).',
   membersCount: '{count} directories',
   dropToUngrouped: 'Drop here to ungroup',
-  useOfficialView: 'Use official view',
-  useGroupedView: 'Workspace groups view',
   more: 'More',
   pin: 'Pin',
   unpin: 'Unpin',

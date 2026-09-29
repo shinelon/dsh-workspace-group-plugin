@@ -8,7 +8,7 @@
 - **目录名**：`dsh-workspace-group-plugin`（与包名不同属有意为之，勿混用）
 - **定位**：DSH Web 客户端插件，在侧边栏工作区位置以自定义分组展示工作目录（原地遮蔽官方浏览区，一键切回官方视图）
 - **核心能力**：
-  - 分组视图遮蔽注册（`sidebar.workspaces` single 槽，priority -1；官方条目保持注册，释放即恢复）；官方模式下经 `sidebar.footer.action` 哨兵切回；模式存 localStorage `wsg.sidebarMode`，切换重载页面
+  - 分组视图遮蔽注册（`sidebar.workspaces` single 槽，priority -1；官方条目保持注册，释放即恢复）；模式切换在设置面板的「工作区视图」section（`settings.section`，order 65，参考 mcp 插件），经 `wsg.sidebarMode.change` DOM 事件驱动 index.tsx 热重挂侧栏注册（立即生效，无重载）；模式存 localStorage `wsg.sidebarMode`
   - 分组 → 工作目录 → 会话 三层树；目录可属多分组；未分配目录进「未分组」虚拟区；视图选项（分组方式/排序/归档筛选）持久化到 localStorage `wsg.view.v1`
   - 点击会话经 `ctx.uiWorkspace.openSession` 跳转对话；「+」经 `startSession(workspaceId)` 开新会话；会话置顶/重命名/分叉/归档走 `ctx.uiWorkspace` + `ctx.sessions` + `ctx.workspaces`
   - 目录行指针拖拽（分组归属与顺序）、分组头原生拖拽排序；分组数据经宿主 `/workspace-group-manager/*` 路由持久化到 `<DSH home>/workspace-groups.json`
@@ -29,7 +29,7 @@
 
 ## 机制速查（修改前必读）
 
-- **遮蔽注册链**：`slots.inject('sidebar.workspaces', () => slots.register({ name:'sidebar.workspaces', priority:-1, locale:NS, inject:()=>({wsg}) }, GroupedRegion))`。同 priority 注册会抛错、不同 priority 低者渲染（shadowing），官方浏览器条目保持注册，释放本注册即原样恢复。官方模式（`localStorage.wsg.sidebarMode === 'official'`）改为注册 `sidebar.footer.action` 哨兵（OfficialModeSentinel）切回。注入面 `wsg = { api, nav, ws }` 绑定自 `ctx.inject(['slots','uiWorkspace','workspaces','sessions'], …)`。
+- **遮蔽注册链**：`slots.inject('sidebar.workspaces', () => slots.register({ name:'sidebar.workspaces', priority:-1, locale:NS, inject:()=>({wsg}) }, GroupedRegion))`。同 priority 注册会抛错、不同 priority 低者渲染（shadowing），官方浏览器条目保持注册，释放本注册即原样恢复。模式切换由设置 section 派发 `wsg.sidebarMode.change` DOM 事件，驱动 `applySidebarMode()` 释放/重建本注册（立即生效，无重载）。注入面 `wsg = { api, nav, ws }` 绑定自 `ctx.inject(['slots','uiWorkspace','workspaces','sessions'], …)`。
 - **全局钩子即 props**：`useWorkspaces`（ui-workspace 合并入 GlobalStandardProps）与 `useSessions`（ui-session）会作为全局席位 props 传给每个 slot 组件；视图据此取 `items`（`WorkspaceView{workspaceId,path,title,sessionIds,updatedAt}`）、`archivedSessionIds`、`pinnedSessionIds` 与 `byId`（`SessionSummary{displayTitle,running,blank,updatedAt,origin?}`）。不得自行 import DSH 运行时包——客户端一律结构化类型 + `ctx.inject(['slots','uiWorkspace','workspaces','sessions'], …)`。
 - **成员按路径不按 id**：分组存 canonical workspace path；工作区删除重注册后 id 变、路径不变。渲染时以 `useWorkspaces` 的 items 映射，映射失败显示「未注册」置灰行。
 - **会话行过滤**：隐藏 archived（registry 全局集合）、blank（临时空白新会话）、`origin === 'subagent'`；按 `updatedAt` 降序。运行状态点直接读 `summary.running`。
@@ -54,11 +54,11 @@ pnpm run build      # 产出 lib/client.js
 
 1. `node --check src/host/*.js` + `pnpm run typecheck && pnpm test && pnpm run build` 全部实际执行并确认输出；
 2. 存储层改动后 `test/store.test.mjs` 的「未触及语义」断言（幂等成员、损坏备份、并发串行）必须全绿；
-3. GUI 手动验收：分组视图遮蔽官方列表；区头「＋」新建分组 → 「未分组」「⋯」添加目录 → 展开会话、点击跳转、「+」新会话、置顶/分叉/归档 → 重命名/移动/移出/删除 → **拖拽：目录行拖到他组头/未分组头/其他目录行上/下半（蓝线标记），分组头拖动排序** → 视图选项四种分组方式/两种排序/三档归档筛选 → ☰ 官方视图原样恢复、底部哨兵切回 → 刷新页面数据仍在 → 中英文案正确；
+3. GUI 手动验收：分组视图遮蔽官方列表；区头「＋」新建分组 → 「未分组」「⋯」添加目录 → 展开会话、点击跳转、「+」新会话、置顶/分叉/归档 → 重命名/移动/移出/删除 → **拖拽：目录行拖到他组头/未分组头/其他目录行上/下半（蓝线标记），分组头拖动排序** → 视图选项四种分组方式/两种排序/三档归档筛选 → 设置 → 工作区视图 切换 官方/分组（立即生效、官方列表原样恢复）→ 刷新页面数据仍在 → 中英文案正确；
 4. 检查 `<DSH home>/workspace-groups.json` 内容与 UI 一致。
 
 ## 已知边界
 
-- 分组模式下官方浏览器被遮蔽（「☰ 使用官方视图」一键恢复）；官方类名哈希与行结构按 0.1.7-rc.2 硬编码，升级需复核；会话内容搜索与悬停卡片未实现。
+- 分组模式下官方浏览器被遮蔽（设置 → 工作区视图 一键切回）；官方类名哈希与行结构按 0.1.7-rc.2 硬编码，升级需复核；会话内容搜索与悬停卡片未实现。
 - 数据为本机全局一份（不分 profile）；多标签并发写 last-write-wins。
 - 路由仅回环可用（与 mcp 插件同款栅栏），远程浏览器部署不可管理分组。
