@@ -45,6 +45,8 @@ export interface GroupedRegionProps {
   useSessions?: SnapshotHook
   /** Layout panel-info hook (panelActive awareness for current selection). */
   usePanelInfo?: SnapshotHook
+  /** Session UI status hook (pending interaction / completion-unread dots). */
+  useSessionStatus?: SnapshotHook
   /** Shell owner share: wide renders the full region, rail the icon column. */
   wide?: boolean
   expandSidebar?: () => void
@@ -196,6 +198,17 @@ function Ico(props: { name: string; size?: number; className?: string }): ReactN
   return <C size={props.size} className={props.className} />
 }
 
+/** The official StateDot for a session status (theme colors/animation); a
+ * static fallback dot when primitives are unavailable. */
+function StateDotEl(props: { state: 'warning' | 'ongoing' | 'done' }): ReactNode {
+  const C = primitives().StateDot as ((p: { state: string }) => ReactNode) | undefined
+  if (C) return <C state={props.state} />
+  const color = props.state === 'warning'
+    ? '#d9a441'
+    : 'var(--dsw-alias-state-success-primary, #59b077)'
+  return <span className={ROWS.dot} style={{ width: 8, height: 8, borderRadius: 4, background: color }} />
+}
+
 /** Rail-mode stand-in: one icon button that expands the sidebar. */
 function RailStub({ expandSidebar }: { expandSidebar?: () => void }) {
   return (
@@ -244,6 +257,7 @@ export function GroupedRegion(props: GroupedRegionProps) {
   const useWorkspacesHook = (props.useWorkspaces ?? fallback) as SnapshotHook
   const useSessionsHook = (props.useSessions ?? fallback) as SnapshotHook
   const usePanelInfoHook = (props.usePanelInfo ?? fallback) as SnapshotHook
+  const useSessionStatusHook = (props.useSessionStatus ?? fallback) as SnapshotHook
 
   const items = (useWorkspacesHook((snapshot: unknown) =>
     (snapshot as { items?: WorkspaceView[] } | null | undefined)?.items) ?? []) as WorkspaceView[]
@@ -255,6 +269,10 @@ export function GroupedRegion(props: GroupedRegionProps) {
     (snapshot as { byId?: Record<string, SessionSummary> } | null | undefined)?.byId) ?? {}) as Record<string, SessionSummary>
   const panelActive = ((usePanelInfoHook((info: unknown) =>
     (info as { activePanelId?: unknown } | null | undefined)?.activePanelId != null)) ?? false) as boolean
+  const sessionStatusMap = (useSessionStatusHook((snapshot: unknown) => snapshot) ?? new Map()) as ReadonlyMap<string, {
+    pendingInteraction?: string
+    completionUnread?: boolean
+  }>
 
   const currentSessionId = useMemo(() => {
     if (panelActive) return undefined
@@ -272,6 +290,7 @@ export function GroupedRegion(props: GroupedRegionProps) {
       pinnedIds={pinnedIds}
       byId={byId}
       currentSessionId={currentSessionId}
+      sessionStatusMap={sessionStatusMap}
     />
   )
 }
@@ -285,9 +304,10 @@ function RegionBody(
     pinnedIds: readonly string[]
     byId: Record<string, SessionSummary>
     currentSessionId: string | undefined
+    sessionStatusMap: ReadonlyMap<string, { pendingInteraction?: string; completionUnread?: boolean }>
   },
 ) {
-  const { wsg, t = key => key, items, archivedIds, pinnedIds, byId, currentSessionId } = props
+  const { wsg, t = key => key, items, archivedIds, pinnedIds, byId, currentSessionId, sessionStatusMap } = props
   const P = primitives()
   const Menu = P.Menu as
     | ((p: {
@@ -790,6 +810,17 @@ function RegionBody(
     const renaming = renamingSessionId === summary.id
     const selected = currentSessionId === summary.id
     const stop = (event: { stopPropagation(): void }) => event.stopPropagation()
+    // Official status model: pending interaction > running (ongoing spinner)
+    // > unread completion (done dot) > idle (no dot); pending replaces time.
+    const status = sessionStatusMap.get(summary.id)
+    const pendingInteraction = archived ? undefined : status?.pendingInteraction
+    const rowStatus: { state: 'warning' | 'ongoing' | 'done'; trailing?: string } | null =
+      pendingInteraction === 'approval' ? { state: 'warning', trailing: t('status.compact.approval') }
+      : pendingInteraction === 'plan-review' ? { state: 'warning', trailing: t('status.compact.planReview') }
+      : pendingInteraction === 'question' ? { state: 'warning', trailing: t('status.compact.answer') }
+      : summary.running ? { state: 'ongoing' }
+      : status?.completionUnread ? { state: 'done' }
+      : null
     return (
       <div
         className={clsx(ROWS.sessionRow, selected && ROWS.selected, menuOpen && ROWS.menuOpen, archived && ROWS.archived)}
@@ -799,9 +830,7 @@ function RegionBody(
         onClick={() => { if (archived) { showNotice(t('archivedNotOpenable')); return } wsg.nav.openSession(summary.id) }}
       >
         <span className={ROWS.slot}>
-          {!archived && summary.running && (
-            <span className={ROWS.dot} style={{ width: 8, height: 8, borderRadius: 4, background: 'var(--dsw-alias-state-success-primary, #59b077)' }} />
-          )}
+          {!archived && rowStatus !== null && <StateDotEl state={rowStatus.state} />}
         </span>
         {renaming
           ? (
@@ -828,7 +857,9 @@ function RegionBody(
                 {summary.displayTitle}
               </span>
             )}
-        {!renaming && <span className={ROWS.time}>{formatRelative(summary.updatedAt, t)}</span>}
+        {!renaming && (
+          <span className={ROWS.time}>{rowStatus?.trailing ?? formatRelative(summary.updatedAt, t)}</span>
+        )}
         {pinned && !archived && !renaming && (
           <span className={ROWS.pinIndicator}><Ico name="IconPinFillRegular" size={14} /></span>
         )}

@@ -60,6 +60,9 @@ export interface WsgLocaleKeyMap {
   searching: 'searching'
   searchNoResults: 'searchNoResults'
   archivedNotOpenable: 'archivedNotOpenable'
+  'status.compact.approval': 'status.compact.approval'
+  'status.compact.planReview': 'status.compact.planReview'
+  'status.compact.answer': 'status.compact.answer'
   relNow: 'relNow'
   relMinutes: 'relMinutes'
   relHours: 'relHours'
@@ -128,6 +131,9 @@ export const zh: Record<keyof WsgLocaleKeyMap, string> = {
   searching: '搜索中…',
   searchNoResults: '未找到匹配会话',
   archivedNotOpenable: '已归档会话无法打开，取消归档后可打开',
+  'status.compact.approval': '待审批',
+  'status.compact.planReview': '计划待审',
+  'status.compact.answer': '待回答',
   relNow: '刚刚',
   relMinutes: '{n}分钟',
   relHours: '{n}小时',
@@ -196,6 +202,9 @@ export const en: Record<keyof WsgLocaleKeyMap, string> = {
   searching: 'Searching…',
   searchNoResults: 'No matching sessions',
   archivedNotOpenable: "Archived sessions can't be opened — unarchive first",
+  'status.compact.approval': 'Approval',
+  'status.compact.planReview': 'Plan review',
+  'status.compact.answer': 'Answer',
   relNow: 'now',
   relMinutes: '{n}min',
   relHours: '{n}h',
