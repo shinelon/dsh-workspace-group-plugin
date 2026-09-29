@@ -312,6 +312,7 @@ function RegionBody(
   const groupsRef = useRef<WorkspaceGroup[]>([])
   groupsRef.current = groups ?? []
   const pointerDragRef = useRef<{ path: string; fromGroupId: string | null; startX: number; startY: number; active: boolean } | null>(null)
+  const suppressClickRef = useRef(false)
 
   const setView = useCallback((patch: Partial<ViewOpts>) => {
     setViewState(previous => {
@@ -456,6 +457,7 @@ function RegionBody(
   const onDirRowMouseDown = (path: string, fromGroupId: string | null) => (event: ReactMouseEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
     if ((event.target as HTMLElement).closest('button, input')) return
+    suppressClickRef.current = false
     const startX = event.clientX
     const startY = event.clientY
     const state = { path, fromGroupId, startX, startY, active: false }
@@ -487,12 +489,22 @@ function RegionBody(
       setDrag(null)
       setDropMark(null)
       if (!wasActive) return
+      suppressClickRef.current = true
       const hit = document.elementFromPoint(up.clientX, up.clientY)?.closest('[data-wsg-drop]') as HTMLElement | null
       if (hit === null) return
       const dirPath = hit.getAttribute('data-wsg-dir')
       const groupId = hit.getAttribute('data-wsg-group')
+      const owner = hit.getAttribute('data-wsg-owner')
       const rect = hit.getBoundingClientRect()
-      commitPointerDrop(path, fromGroupId, dirPath, groupId, up.clientY < rect.top + rect.height / 2 ? 'before' : 'after')
+      // Directory rows carry their owning group in data-wsg-owner; headers
+      // carry data-wsg-group instead.
+      commitPointerDrop(
+        path,
+        fromGroupId,
+        dirPath,
+        dirPath !== null ? (owner !== null && owner !== '' ? owner : null) : groupId,
+        up.clientY < rect.top + rect.height / 2 ? 'before' : 'after',
+      )
     }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
@@ -861,7 +873,10 @@ function RegionBody(
           style={{ ...indent(depth), ...(draggingThis ? { opacity: 0.45 } : null) }}
           role="treeitem"
           aria-expanded={rowOpen}
-          onClick={() => toggle(expandKey)}
+          onClick={() => {
+            if (suppressClickRef.current) { suppressClickRef.current = false; return }
+            toggle(expandKey)
+          }}
           data-wsg-drop={groupItems ? '' : undefined}
           data-wsg-dir={groupItems ? path : undefined}
           data-wsg-owner={groupItems ? (fromGroupId ?? '') : undefined}
@@ -1202,6 +1217,14 @@ function RegionBody(
 
   return (
     <div className={SHELL.root} onClick={() => setConfirmingPath(null)}>
+      <style>{[
+        // Official dropBefore/dropAfter markers only style .sessionRow; the
+        // directory rows here are .projectRow, so give them the same lines.
+        '.YDXeBa_projectRow.YDXeBa_dropBefore,.YDXeBa_projectRow.YDXeBa_dropAfter{position:relative}',
+        '.YDXeBa_projectRow.YDXeBa_dropBefore:before,.YDXeBa_projectRow.YDXeBa_dropAfter:after{content:"";z-index:1;background:var(--dsw-alias-state-business-primary,#4d78cc);pointer-events:none;height:2px;position:absolute;left:0;right:0}',
+        '.YDXeBa_projectRow.YDXeBa_dropBefore:before{top:-1px}',
+        '.YDXeBa_projectRow.YDXeBa_dropAfter:after{bottom:-1px}',
+      ].join('\n')}</style>
       <div className={SHELL.sectionHeader}>
         <span className={SHELL.sectionLabel}>{t('workspaceTitle')}</span>
         <span style={R.badge}>{t('panel')}</span>
