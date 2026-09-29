@@ -1,26 +1,19 @@
 /**
- * Workspace-group surface plugin, browser half. Two capabilities:
- *
- * 1. The 「分组」 main panel (`main` keyed slot + `sidebar.panellist` icon
- *    row) — always registered.
- * 2. The grouped sidebar region (Phase 0+): while `wsg.sidebarMode` is not
- *    'official', shadows the official WorkspaceBrowser under
- *    `sidebar.workspaces` at priority -1; otherwise registers a small
- *    `sidebar.footer.action` sentinel that switches back. The mode flag is
- *    read at apply time; switching reloads the page.
+ * Workspace-group plugin, browser half. The grouped sidebar region: while
+ * `wsg.sidebarMode` is not 'official', shadows the official WorkspaceBrowser
+ * under `sidebar.workspaces` at priority -1; otherwise registers a small
+ * `sidebar.footer.action` sentinel that switches back. The mode flag is read
+ * at apply time; switching reloads the page. All group and directory
+ * management lives in the region itself.
  * @module dsh-workspace-group-manager/client
  */
 
 import { groupsApi } from './api'
-import { GroupPanel, PanelIcon } from './panel'
 import { GroupedRegion, MODE_KEY, OfficialModeSentinel } from './region'
 import { NS, zh, en } from './locales'
 
 /** The locale namespace owned by this plugin. */
 export const NS_WSG = NS
-
-/** Main panel id: the panellist row id and the keyed main slot key. */
-export const PANEL_ID = 'workspace-groups'
 
 /** Minimal structural type of the client context this plugin touches. */
 interface ClientContext {
@@ -51,8 +44,8 @@ function sidebarMode(): 'grouped' | 'official' {
 }
 
 /**
- * Client plugin body: dictionaries, then the panel + region registrations
- * with the injected navigation/mutation face. Slot declarations come from
+ * Client plugin body: dictionaries, then the region registration with the
+ * injected navigation/mutation face. Slot declarations come from
  * ui-layout/ui-sidebar and the services (uiWorkspace, workspaces model) from
  * their owners — activation order is not constrained, so every wait is
  * declaration/service aware.
@@ -111,29 +104,6 @@ export function apply(ctx: ClientContext): void {
         pickDirectory: () => scope.uiWorkspace.pickDirectory(),
       },
     }
-
-    // The panel page: keyed under PANEL_ID in the layout's main slot.
-    slots.inject('main', () => slots.register(
-      {
-        name: 'main',
-        key: PANEL_ID,
-        locale: NS,
-        inject: () => ({ wsg }),
-      },
-      GroupPanel,
-    ))
-
-    // The sidebar rail row: same id, so the shell opens the keyed panel.
-    slots.inject('sidebar.panellist', () => slots.register(
-      {
-        name: 'sidebar.panellist',
-        id: PANEL_ID,
-        order: 20,
-        locale: NS,
-        label: () => t('panel'),
-      },
-      PanelIcon,
-    ))
 
     if (sidebarMode() === 'grouped') {
       // Shadow the official WorkspaceBrowser: lower priority wins the single
